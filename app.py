@@ -1,28 +1,30 @@
 from flask import Flask, request, jsonify
-from email_service import send_email
-import random
-import string
+from email_service import send_verification_code, verify_otp
 
 app = Flask(__name__)
 
 
 @app.route("/send_verification_code", methods=["POST"])
-def send_verification_code():
+def handle_send_verification_code():
     data = request.json
     email = data.get("email")
 
     if not email:
         return jsonify({"error": "Email is required"}), 400
 
-    code = "".join(random.choices(string.digits, k=6))
+    return send_verification_code(email)
 
-    subject = "Your Verification Code"
-    body = f"Your verification code is: {code}"
 
-    if send_email(email, subject, body):
-        return jsonify({"status": "Verification code sent"}), 200
-    else:
-        return jsonify({"error": "Failed to send email"}), 500
+@app.route("/verify_otp", methods=["POST"])
+def handle_verify_otp():
+    data = request.json
+    email = data.get("email")
+    otp = data.get("otp")
+
+    if not email or not otp:
+        return jsonify({"error": "Email and OTP are required"}), 400
+
+    return verify_otp(email, otp)
 
 
 if __name__ == "__main__":
