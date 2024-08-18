@@ -2,10 +2,10 @@ import sqlite3
 
 
 def initialize_db():
+    """Create the database and the table to store OTPs."""
     conn = sqlite3.connect("otp_db.sqlite3")
     c = conn.cursor()
 
-    # Create the table for storing OTPs
     c.execute(
         """
     CREATE TABLE IF NOT EXISTS otp (

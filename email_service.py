@@ -1,26 +1,29 @@
 import os
 import random
+import sqlite3
 import string
 import time
-import sqlite3
-from flask import jsonify
+from typing import Optional
+from typing import Tuple
+
+from flask import jsonify, Response
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-SENDER_EMAIL = "physics-revision-app@mail.com"
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 DATABASE = "otp_db.sqlite3"
 
 
-# Database connection helper
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = (
+        sqlite3.Row
+    )  # Row can now be accessed by both column name and index
     return conn
 
 
-# Store OTP in the database
-def store_otp(email, otp, expiry):
+def store_otp(email: str, otp: str, expiry: float):
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -36,8 +39,8 @@ def store_otp(email, otp, expiry):
     conn.close()
 
 
-# Retrieve stored OTP from the database
-def get_stored_otp(email):
+def get_stored_otp(email: str) -> Optional[sqlite3.Row]:
+    """Retrieves the stored OTP and Expiry for the given email address"""
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -53,8 +56,7 @@ def get_stored_otp(email):
     return result
 
 
-# Clear stored OTP from the database
-def clear_stored_otp(email):
+def clear_stored_otp(email: str):
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -69,8 +71,7 @@ def clear_stored_otp(email):
     conn.close()
 
 
-# Send an email using SendGrid
-def send_email(to_email, subject, body):
+def send_email(to_email: str, subject: str, body: str) -> bool:
     message = Mail(
         from_email=SENDER_EMAIL,
         to_emails=to_email,
@@ -87,30 +88,27 @@ def send_email(to_email, subject, body):
         return False
 
 
-# Generate and send OTP to the user's email
-def send_verification_code(email):
+def send_verification_code(email: str) -> Tuple[Response, int]:
     otp = "".join(random.choices(string.digits, k=6))
-    otp_expiry = time.time() + 60  # OTP valid for 5 minutes
+    otp_expiry = time.time() + 60  # OTP valid for 1 minute
 
     store_otp(email, otp, otp_expiry)
 
     subject = "Your Verification Code"
     body = f"Your verification code is: {otp}"
 
+    # `jsonify` is a Flask function that converts a dictionary into a JSON response to send back to the client
     if send_email(email, subject, body):
         return jsonify({"status": "Verification code sent"}), 200
     else:
         return jsonify({"error": "Failed to send email"}), 500
 
 
-# Verify the OTP provided by the user
-def verify_otp(email, otp):
-    stored_otp_data = get_stored_otp(email)
+def verify_otp(email: str, otp: str) -> Tuple[Response, int]:
+    stored_otp, expiry = get_stored_otp(email)
 
-    if not stored_otp_data:
+    if not stored_otp or not expiry:
         return jsonify({"error": "OTP not found"}), 400
-
-    stored_otp, expiry = stored_otp_data
 
     if time.time() > expiry:
         return jsonify({"error": "OTP expired"}), 400
