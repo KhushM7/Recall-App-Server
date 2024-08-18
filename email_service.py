@@ -3,23 +3,25 @@ import random
 import sqlite3
 import string
 import time
-from typing import Optional
-from typing import Tuple
-
+from typing import Optional, Tuple
 from flask import jsonify, Response
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+from sendgrid.helpers.mail import Mail, Content, From, To
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 DATABASE = "otp_db.sqlite3"
 
 
+def load_email_template(file_path: str = r"email_template.html", otp: str = "") -> str:
+    with open(file_path, "r") as file:
+        template = file.read()
+    return template.replace("otp", otp)
+
+
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
-    conn.row_factory = (
-        sqlite3.Row
-    )  # Row can now be accessed by both column name and index
+    conn.row_factory = sqlite3.Row
     return conn
 
 
@@ -40,7 +42,6 @@ def store_otp(email: str, otp: str, expiry: float):
 
 
 def get_stored_otp(email: str) -> Optional[sqlite3.Row]:
-    """Retrieves the stored OTP and Expiry for the given email address"""
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -71,12 +72,12 @@ def clear_stored_otp(email: str):
     conn.close()
 
 
-def send_email(to_email: str, subject: str, body: str) -> bool:
+def send_email(to_email: str, subject: str, html_content: str) -> bool:
     message = Mail(
-        from_email=SENDER_EMAIL,
-        to_emails=to_email,
+        from_email=From(SENDER_EMAIL, "Physics Revision App"),
+        to_emails=To(to_email),
         subject=subject,
-        plain_text_content=body,
+        html_content=Content("text/html", html_content),
     )
     try:
         sg = SendGridAPIClient(SENDGRID_API_KEY)
@@ -95,20 +96,21 @@ def send_verification_code(email: str) -> Tuple[Response, int]:
     store_otp(email, otp, otp_expiry)
 
     subject = "Your Verification Code"
-    body = f"Your verification code is: {otp}"
+    html_content = load_email_template("email_template.html", otp)
 
-    # `jsonify` is a Flask function that converts a dictionary into a JSON response to send back to the client
-    if send_email(email, subject, body):
+    if send_email(email, subject, html_content):
         return jsonify({"status": "Verification code sent"}), 200
     else:
         return jsonify({"error": "Failed to send email"}), 500
 
 
 def verify_otp(email: str, otp: str) -> Tuple[Response, int]:
-    stored_otp, expiry = get_stored_otp(email)
+    stored_otp_data = get_stored_otp(email)
 
-    if not stored_otp or not expiry:
+    if not stored_otp_data:
         return jsonify({"error": "OTP not found"}), 400
+
+    stored_otp, expiry = stored_otp_data
 
     if time.time() > expiry:
         return jsonify({"error": "OTP expired"}), 400

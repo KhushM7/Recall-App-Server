@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://kit.fontawesome.com/59ec7e3978.js" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #e3f2fd;
+            margin: 0;
+            padding: 0;
+            color: #0d47a1;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border: 2px solid #bbdefb;
+        }
+
+        .header {
+            background-color: #0d47a1;
+            padding: 15px;
+            border-radius: 10px 10px 0 0;
+            text-align: center;
+            color: #ffffff;
+            font-size: 26px;
+        }
+
+        .content {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .otp-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            color: #0d47a1;
+        }
+
+        .otp-container .otp {
+            margin-right: 10px;
+            background-color: #e3f2fd;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: inline-block;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .copy-icon {
+            cursor: pointer;
+            font-size: 32px;
+            color: #0d47a1;
+            margin-left: 10px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 14px;
+            color: #1e88e5;
+            margin-top: 30px;
+        }
+
+        .footer p {
+            margin: 5px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+        <div class="header">Physics Revision App</div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>To reset your password, please use the following OTP:</p>
+            <div class="otp-container">
+                <span class="otp">otp</span>
+                <i class="fa-solid fa-copy copy-icon" id="copy-icon" onclick="copyToClipboard('otp')"></i>
+            </div>
+            <p>If you did not request this, please ignore this email.</p>
+        </div>
+        <div class="footer">
+            <p>Thank you for using Physics Revision App.</p>
+            <p>&copy; 2024 Physics Revision App. All rights reserved.</p>
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const icon = document.getElementById('copy-icon');
+                icon.classList.remove('fa-copy');
+                icon.classList.add('fa-check');
+                icon.style.color = 'green';
+            }, (err) => {
+                console.error('Could not copy text: ', err);
+            });
+        }
+    </script>
+</body>
+
+</html>
