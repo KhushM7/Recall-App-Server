@@ -10,10 +10,13 @@ from sendgrid.helpers.mail import Mail, Content, From, To
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-DATABASE = "otp_db.sqlite3"
+DATABASE = "Reset_Password/otp_db.sqlite3"
 
 
-def load_email_template(file_path: str = r"email_template.html", otp: str = "") -> str:
+def load_email_template(
+    file_path: str,
+    otp: str,
+) -> str:
     with open(file_path, "r") as file:
         template = file.read()
     return template.replace("otp", otp)
@@ -96,7 +99,7 @@ def send_verification_code(email: str) -> Tuple[Response, int]:
     store_otp(email, otp, otp_expiry)
 
     subject = "Your Verification Code"
-    html_content = load_email_template("email_template.html", otp)
+    html_content = load_email_template("Reset_Password/email_template.html", otp)
 
     if send_email(email, subject, html_content):
         return jsonify({"status": "Verification code sent"}), 200
