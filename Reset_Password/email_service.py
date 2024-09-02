@@ -98,7 +98,7 @@ def send_verification_code(email: str) -> Tuple[Response, int]:
 
     store_otp(email, otp, otp_expiry)
 
-    subject = "Your Verification Code"
+    subject = f"Your Verification Code is {otp}"
     html_content = load_email_template("Reset_Password/email_template.html", otp)
 
     if send_email(email, subject, html_content):
