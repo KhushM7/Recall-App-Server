@@ -1,9 +1,12 @@
 import os
 import random
 import sqlite3
+import ssl
 import string
 import time
 from typing import Optional, Tuple
+
+import urllib3
 from flask import jsonify, Response
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Content, From, To
@@ -11,6 +14,9 @@ from sendgrid.helpers.mail import Mail, Content, From, To
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 DATABASE = "Reset_Password/otp_db.sqlite3"
+
+ssl._create_default_https_context = ssl._create_unverified_context
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def load_email_template(
