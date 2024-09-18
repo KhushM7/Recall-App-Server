@@ -38,7 +38,6 @@ class Card:
         question,
         answer,
         stability=1.0,
-        ease=1.3,
         difficulty=1.0,
         last_review: Optional[datetime] = None,
     ):
@@ -47,7 +46,6 @@ class Card:
         self.question = question
         self.answer = answer
         self.stability = stability
-        self.ease = ease
         self.difficulty = difficulty
         self.last_review = last_review if last_review else datetime.now(timezone.utc)
         self.reps = 0
@@ -75,7 +73,7 @@ class FSRS:
         card.elapsed_days = (now - card.last_review).days
         card.last_review = now
         card.reps += 1
-
+        print("Reps: ", card.reps)
         if rating == 1:  # Again
             card.stability = self.init_stability(rating)
             card.difficulty = self.init_difficulty(rating)
