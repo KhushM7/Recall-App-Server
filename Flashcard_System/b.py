@@ -125,41 +125,25 @@ class FSRS:
     def init_difficulty(self, rating: int) -> float:
         return min(max(self.p.w[4] - math.exp(self.p.w[5] * (rating - 1)) + 1, 1), 10)
 
-    def next_stability(self, stability: float, rating: int) -> float:
-        """Memoized calculation for next stability."""
-        if (stability, rating) in self.memo:
-            return self.memo[(stability, rating)]
-        updated_stability = stability * math.exp(
-            self.p.w[17] * (rating - 3 + self.p.w[18])
+    def forgetting_curve(self, elapsed_days: int, stability: float) -> float:
+        return (1 + self.FACTOR * elapsed_days / stability) ** self.DECAY
+
+    def next_interval(self, s: float) -> int:
+        new_interval = (
+            s / self.FACTOR * (self.p.request_retention ** (1 / self.DECAY) - 1)
         )
-        self.memo[(stability, rating)] = updated_stability
-        return updated_stability
+        return min(max(round(new_interval), 1), self.p.maximum_interval)
 
     def next_difficulty(self, difficulty: float, rating: int) -> float:
         next_d = difficulty - self.p.w[6] * (rating - 3)
         return min(max(self.mean_reversion(self.init_difficulty(4), next_d), 1), 10)
 
-    def next_interval(self, stability: float, level: int = 0) -> int:
-        """Recursively calculate the next interval."""
-        if level > 10:  # Base case to prevent infinite recursion
-            return self.p.maximum_interval
-        new_interval = (
-            stability / self.FACTOR * (self.p.request_retention ** (1 / self.DECAY) - 1)
-        )
-        if new_interval > self.p.maximum_interval:
-            return self.next_interval(stability, level + 1)
-        return min(max(round(new_interval), 1), self.p.maximum_interval)
-
-    def mean_reversion(self, init: float, current: float) -> float:
-        return self.p.w[7] * init + (1 - self.p.w[7]) * current
-
-    def forgetting_curve(self, elapsed_days: int, stability: float) -> float:
-        """Calculate retrievability based on the forgetting curve."""
-        return (1 + self.FACTOR * elapsed_days / stability) ** self.DECAY
-
     def short_term_stability(self, stability: float, rating: int) -> float:
         """Calculate short-term stability during the 'Learning' state."""
         return stability * math.exp(self.p.w[17] * (rating - 3 + self.p.w[18]))
+
+    def mean_reversion(self, init: float, current: float) -> float:
+        return self.p.w[7] * init + (1 - self.p.w[7]) * current
 
     def next_recall_stability(
         self, difficulty: float, stability: float, retrievability: float, rating: int
@@ -175,4 +159,15 @@ class FSRS:
             * (math.exp((1 - retrievability) * self.p.w[10]) - 1)
             * hard_penalty
             * easy_bonus
+        )
+
+    def next_forget_stability(
+        self, difficulty: float, stability: float, retrievability: float
+    ) -> float:
+        """Calculate the next stability if the card is forgotten."""
+        return (
+            self.p.w[11]
+            * math.pow(difficulty, -self.p.w[12])
+            * (math.pow(stability + 1, self.p.w[13]) - 1)
+            * math.exp((1 - retrievability) * self.p.w[14])
         )

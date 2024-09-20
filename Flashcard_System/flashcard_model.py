@@ -6,13 +6,13 @@ from fsrs import Card
 
 def get_db_connection():
     try:
-        return sqlite3.connect(
-            "../physics_revision_app.db",
-            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-            # Enable automatic type conversion between SQLite and Python for specific types.
-            # PARSE_DECLTYPES: Converts declared column types (e.g., DATE, DATETIME) to Python types.
-            # PARSE_COLNAMES: Allows type hints in column names (e.g., "created_at [timestamp]") to be parsed.
-        )
+        connection = sqlite3.connect("../physics_revision_app.db")
+        # detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+        # Enable automatic type conversion between SQLite and Python for specific types.
+        # PARSE_DECLTYPES: Converts declared column types (e.g., DATE, DATETIME) to Python types.
+        # PARSE_COLNAMES: Allows type hints in column names (e.g., "created_at [timestamp]") to be parsed.
+        connection.row_factory = sqlite3.Row
+        return connection
     except sqlite3.Error as e:
         print(f"Database connection failed: {e}")
         return None
@@ -65,7 +65,6 @@ def get_flashcard(flashcard_id: int) -> Card | None:
     with get_db_connection() as connection:
         if connection is None:
             return None
-
         cursor = connection.cursor()
         row = fetch_flashcard_data(cursor, flashcard_id)
         return parse_flashcard_row(row)
