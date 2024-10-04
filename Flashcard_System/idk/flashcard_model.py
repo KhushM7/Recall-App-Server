@@ -6,7 +6,7 @@ from fsrs import Card
 
 def get_db_connection():
     try:
-        connection = sqlite3.connect("../physics_revision_app.db")
+        connection = sqlite3.connect("../../physics_revision_app.db")
         # detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
         # Enable automatic type conversion between SQLite and Python for specific types.
         # PARSE_DECLTYPES: Converts declared column types (e.g., DATE, DATETIME) to Python types.

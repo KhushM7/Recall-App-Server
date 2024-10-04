@@ -1,10 +1,10 @@
 from datetime import datetime
-from Flashcard_System.flashcard_model import (
+from Flashcard_System.idk.flashcard_model import (
     get_db_connection,
     get_flashcard,
     update_flashcard,
 )
-from fsrs import FSRS, Parameters
+from Flashcard_System.idk.fsrs import FSRS, Parameters
 
 
 def get_user_rating() -> int:

@@ -1,129 +1,133 @@
+import copy
 import math
-from datetime import timedelta, datetime, timezone
-from typing import Optional, Dict, Tuple
-
-
-class Parameters:
-    def __init__(self, request_retention: float = 0.9, maximum_interval: int = 36500):
-        if not (0 < request_retention <= 1):
-            raise ValueError("Retention must be between 0 and 1.")
-        if maximum_interval <= 0:
-            raise ValueError("Maximum interval must be greater than 0.")
-
-        self.request_retention = request_retention
-        self.maximum_interval = maximum_interval
-        self.w = (
-            0.4197,
-            1.1869,
-            3.0412,
-            15.2441,
-            7.1434,
-            0.6477,
-            1.0007,
-            0.0674,
-            1.6597,
-            0.1712,
-            1.1178,
-            2.0225,
-            0.0904,
-            0.3025,
-            2.1214,
-            0.2498,
-            2.9466,
-            0.4891,
-            0.6468,
-        )
-
-
-class Card:
-    def __init__(
-        self,
-        flashcard_id: str,
-        set_name: str,
-        question: str,
-        answer: str,
-        stability: float = 1.0,
-        difficulty: float = 1.0,
-        last_review: Optional[datetime] = None,
-        reps: int = 0,
-        state: str = "New",
-    ):
-        if stability < 0 or difficulty < 0:
-            raise ValueError("Stability and difficulty must be non-negative.")
-        self.flashcard_id = flashcard_id
-        self.set_name = set_name
-        self.question = question
-        self.answer = answer
-        self.stability = stability
-        self.difficulty = difficulty
-        self.last_review = last_review if last_review else datetime.now(timezone.utc)
-        self.reps = reps
-        self.state = state
-        self.state_history = []  # Stack for managing transitions
-        self.elapsed_days = 0
-        self.due = self.last_review
-
-    def update_review(self, new_state: str):
-        """Update card state and push old state to history."""
-        self.state_history.append(self.state)
-        self.state = new_state
+from datetime import datetime, timezone, timedelta
+from typing import Optional
+from flashcard_models import Parameters, SchedulingCards, SchedulingInfo, State, Rating
+from flashcard_db_operations import DatabaseOperations, Card, ReviewLog
 
 
 class FSRS:
-    def __init__(self, parameters: Parameters):
-        self.p = parameters
+    def __init__(
+        self,
+        w: Optional[tuple[float, ...]] = None,
+        request_retention: Optional[float] = None,
+        maximum_interval: Optional[int] = None,
+    ) -> None:
+        self.p = Parameters(w, request_retention, maximum_interval)
         self.DECAY = -0.5
         self.FACTOR = 0.9 ** (1 / self.DECAY) - 1
-        self.memo: Dict[Tuple[float, int], float] = (
-            {}
-        )  # Memoization for calculated values
+        self.db = DatabaseOperations()
 
     def review_card(
-        self, card: Card, rating: int, now: Optional[datetime] = None
-    ) -> Card:
+        self, card: Card, rating: Rating, now: Optional[datetime] = None
+    ) -> tuple[Card, ReviewLog]:
+        scheduling_cards = self.repeat(card, now)
+        card = scheduling_cards[rating].card
+        review_log = scheduling_cards[rating].review_log
+        card_id = self.db.save_card(card)
+        self.db.save_review_log(card_id, review_log)
+        return card, review_log
+
+    def repeat(
+        self, card: Card, now: Optional[datetime] = None
+    ) -> dict[Rating, SchedulingInfo]:
         if now is None:
             now = datetime.now(timezone.utc)
-        card.elapsed_days = (now - card.last_review).days
+
+        if (now.tzinfo is None) or (now.tzinfo != timezone.utc):
+            raise ValueError("datetime must be timezone-aware and set to UTC")
+
+        card = copy.deepcopy(card)
+        if card.state == State.New:
+            card.elapsed_days = 0
+        else:
+            card.elapsed_days = (now - card.last_review).days
         card.last_review = now
         card.reps += 1
+        s = SchedulingCards(card)
+        s.update_state(card.state)
 
-        if card.state == "New":
-            card.stability = self.init_stability(rating)
-            card.difficulty = self.init_difficulty(rating)
-            card.update_review("Learning")
-            card.due = self.set_due_date(now, card)
+        if card.state == State.New:
+            self.init_ds(s)
 
-        elif card.state == "Learning":
-            card.stability = self.short_term_stability(card.stability, rating)
-            card.difficulty = self.next_difficulty(card.difficulty, rating)
-            if rating >= 3:
-                card.update_review("Review")
-            card.due = self.set_due_date(now, card)
+            s.again.due = now + timedelta(minutes=1)
+            s.hard.due = now + timedelta(minutes=5)
+            s.good.due = now + timedelta(minutes=10)
+            easy_interval = self.next_interval(s.easy.stability)
+            s.easy.scheduled_days = easy_interval
+            s.easy.due = now + timedelta(days=easy_interval)
+        elif card.state == State.Learning or card.state == State.Relearning:
+            interval = card.elapsed_days
+            last_d = card.difficulty
+            last_s = card.stability
+            retrievability = self.forgetting_curve(interval, last_s)
+            self.next_ds(s, last_d, last_s, retrievability, card.state)
 
-        elif card.state == "Review":
-            retrievability = self.forgetting_curve(card.elapsed_days, card.stability)
-            card.stability = self.next_recall_stability(
-                card.difficulty, card.stability, retrievability, rating
+            hard_interval = 0
+            good_interval = self.next_interval(s.good.stability)
+            easy_interval = max(self.next_interval(s.easy.stability), good_interval + 1)
+            s.schedule(now, hard_interval, good_interval, easy_interval)
+        elif card.state == State.Review:
+            interval = card.elapsed_days
+            last_d = card.difficulty
+            last_s = card.stability
+            retrievability = self.forgetting_curve(interval, last_s)
+            self.next_ds(s, last_d, last_s, retrievability, card.state)
+
+            hard_interval = self.next_interval(s.hard.stability)
+            good_interval = self.next_interval(s.good.stability)
+            hard_interval = min(hard_interval, good_interval)
+            good_interval = max(good_interval, hard_interval + 1)
+            easy_interval = max(self.next_interval(s.easy.stability), good_interval + 1)
+            s.schedule(now, hard_interval, good_interval, easy_interval)
+        return s.record_log(card, now)
+
+    def init_ds(self, s: SchedulingCards) -> None:
+        s.again.difficulty = self.init_difficulty(Rating.Again)
+        s.again.stability = self.init_stability(Rating.Again)
+        s.hard.difficulty = self.init_difficulty(Rating.Hard)
+        s.hard.stability = self.init_stability(Rating.Hard)
+        s.good.difficulty = self.init_difficulty(Rating.Good)
+        s.good.stability = self.init_stability(Rating.Good)
+        s.easy.difficulty = self.init_difficulty(Rating.Easy)
+        s.easy.stability = self.init_stability(Rating.Easy)
+
+    def next_ds(
+        self,
+        s: SchedulingCards,
+        last_d: float,
+        last_s: float,
+        retrievability: float,
+        state: State,
+    ) -> None:
+        s.again.difficulty = self.next_difficulty(last_d, Rating.Again)
+        s.hard.difficulty = self.next_difficulty(last_d, Rating.Hard)
+        s.good.difficulty = self.next_difficulty(last_d, Rating.Good)
+        s.easy.difficulty = self.next_difficulty(last_d, Rating.Easy)
+        if state in (State.Learning, State.Relearning):
+            s.again.stability = self.short_term_stability(last_s, Rating.Again)
+            s.hard.stability = self.short_term_stability(last_s, Rating.Hard)
+            s.good.stability = self.short_term_stability(last_s, Rating.Good)
+            s.easy.stability = self.short_term_stability(last_s, Rating.Easy)
+        elif state == State.Review:
+            s.again.stability = self.next_forget_stability(
+                last_d, last_s, retrievability
             )
-            card.difficulty = self.next_difficulty(card.difficulty, rating)
-            card.due = self.set_due_date(now, card)
+            s.hard.stability = self.next_recall_stability(
+                last_d, last_s, retrievability, Rating.Hard
+            )
+            s.good.stability = self.next_recall_stability(
+                last_d, last_s, retrievability, Rating.Good
+            )
+            s.easy.stability = self.next_recall_stability(
+                last_d, last_s, retrievability, Rating.Easy
+            )
 
-        print(
-            f"After review: Stability={card.stability:.4f}, Difficulty={card.difficulty:.4f}, Due={card.due}"
-        )
-        print(f"Rating: {rating}, Elapsed days: {card.elapsed_days}")
-        return card
+    def init_stability(self, r: Rating) -> float:
+        return max(self.p.w[r - 1], 0.1)
 
-    def set_due_date(self, now: datetime, card: Card) -> datetime.date:
-        """Set due date for the card based on the rating and current stability."""
-        interval = self.next_interval(card.stability)
-        return now.date() + timedelta(days=interval)
-
-    def init_stability(self, rating: int) -> float:
-        return max(self.p.w[rating - 1], 0.1)
-
-    def init_difficulty(self, rating: int) -> float:
-        return min(max(self.p.w[4] - math.exp(self.p.w[5] * (rating - 1)) + 1, 1), 10)
+    def init_difficulty(self, r: Rating) -> float:
+        return min(max(self.p.w[4] - math.exp(self.p.w[5] * (r - 1)) + 1, 1), 10)
 
     def forgetting_curve(self, elapsed_days: int, stability: float) -> float:
         return (1 + self.FACTOR * elapsed_days / stability) ** self.DECAY
@@ -134,40 +138,37 @@ class FSRS:
         )
         return min(max(round(new_interval), 1), self.p.maximum_interval)
 
-    def next_difficulty(self, difficulty: float, rating: int) -> float:
-        next_d = difficulty - self.p.w[6] * (rating - 3)
-        return min(max(self.mean_reversion(self.init_difficulty(4), next_d), 1), 10)
+    def next_difficulty(self, d: float, r: Rating) -> float:
+        next_d = d - self.p.w[6] * (r - 3)
+        return min(
+            max(self.mean_reversion(self.init_difficulty(Rating.Easy), next_d), 1), 10
+        )
 
-    def short_term_stability(self, stability: float, rating: int) -> float:
-        """Calculate short-term stability during the 'Learning' state."""
+    def short_term_stability(self, stability: float, rating: Rating) -> float:
         return stability * math.exp(self.p.w[17] * (rating - 3 + self.p.w[18]))
 
     def mean_reversion(self, init: float, current: float) -> float:
         return self.p.w[7] * init + (1 - self.p.w[7]) * current
 
     def next_recall_stability(
-        self, difficulty: float, stability: float, retrievability: float, rating: int
+        self, d: float, s: float, r: float, rating: Rating
     ) -> float:
-        """Calculate the next stability based on recall after review."""
-        hard_penalty = self.p.w[15] if rating == 2 else 1
-        easy_bonus = self.p.w[16] if rating == 4 else 1
-        return stability * (
+        hard_penalty = self.p.w[15] if rating == Rating.Hard else 1
+        easy_bonus = self.p.w[16] if rating == Rating.Easy else 1
+        return s * (
             1
             + math.exp(self.p.w[8])
-            * (11 - difficulty)
-            * math.pow(stability, -self.p.w[9])
-            * (math.exp((1 - retrievability) * self.p.w[10]) - 1)
+            * (11 - d)
+            * math.pow(s, -self.p.w[9])
+            * (math.exp((1 - r) * self.p.w[10]) - 1)
             * hard_penalty
             * easy_bonus
         )
 
-    def next_forget_stability(
-        self, difficulty: float, stability: float, retrievability: float
-    ) -> float:
-        """Calculate the next stability if the card is forgotten."""
+    def next_forget_stability(self, d: float, s: float, r: float) -> float:
         return (
             self.p.w[11]
-            * math.pow(difficulty, -self.p.w[12])
-            * (math.pow(stability + 1, self.p.w[13]) - 1)
-            * math.exp((1 - retrievability) * self.p.w[14])
+            * math.pow(d, -self.p.w[12])
+            * (math.pow(s + 1, self.p.w[13]) - 1)
+            * math.exp((1 - r) * self.p.w[14])
         )
