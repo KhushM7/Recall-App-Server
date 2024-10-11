@@ -1,12 +1,31 @@
+"""
+fsrs.models
+-----------
+
+This module defines the core classes used by the FSRS scheduler.
+
+Classes:
+    State: Enum representing the learning state of a Card object.
+    Rating: Enum representing the four possible ratings when reviewing a card.
+    ReviewLog: Represents the log entry of Card that has been reviewed.
+    Card: Represents a flashcard in the FSRS system.
+    SchedulingInfo: Simple data class that bundles together an updated Card object and its corresponding ReviewLog object.
+    SchedulingCards: Manages the scheduling of a Card object for each of the four potential ratings.
+    Parameters: The parameters used to configure the FSRS scheduler.
+"""
+
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 import copy
 from typing import Any, Optional, Union
 from enum import IntEnum
-from flashcard_db_operations import DatabaseOperations, Card, ReviewLog, State, Rating
 
 
 class State(IntEnum):
+    """
+    Enum representing the learning state of a Card object.
+    """
+
     New = 0
     Learning = 1
     Review = 2
@@ -14,6 +33,10 @@ class State(IntEnum):
 
 
 class Rating(IntEnum):
+    """
+    Enum representing the four possible ratings when reviewing a card.
+    """
+
     Again = 1
     Hard = 2
     Good = 3
@@ -21,6 +44,17 @@ class Rating(IntEnum):
 
 
 class ReviewLog:
+    """
+    Represents the log entry of Card that has been reviewed.
+
+    Attributes:
+        rating (Rating): The rating given to the card during the review.
+        scheduled_days (int): The number of days until the card is due next.
+        elapsed_days (int): The number of days since the card was last reviewed.
+        review (datetime): The date and time of the review.
+        state (State): The learning state of the card before the review.
+    """
+
     def __init__(
         self,
         rating: Rating,
@@ -28,14 +62,32 @@ class ReviewLog:
         elapsed_days: int,
         review: datetime,
         state: State,
+        stability: float = 0,
+        difficulty: float = 0,
+        reps: int = 0,
+        lapses: int = 0,
+        last_review: Optional[datetime] = None,
     ) -> None:
         self.rating = rating
         self.scheduled_days = scheduled_days
         self.elapsed_days = elapsed_days
         self.review = review
         self.state = state
+        self.stability = stability
+        self.difficulty = difficulty
+        self.reps = reps
+        self.lapses = lapses
+        self.last_review = last_review
 
     def to_dict(self) -> dict[str, Union[int, str]]:
+        """
+        Returns a JSON-serializable dictionary representation of the ReviewLog object.
+
+        This method is specifically useful for storing ReviewLog objects in a database.
+
+        Returns:
+            dict: A dictionary representation of the ReviewLog object.
+        """
         return {
             "rating": self.rating.value,
             "scheduled_days": self.scheduled_days,
@@ -46,17 +98,52 @@ class ReviewLog:
 
     @staticmethod
     def from_dict(source_dict: dict[str, Any]) -> "ReviewLog":
+        """
+        Creates a ReviewLog object from an existing dictionary.
+
+        Args:
+            source_dict (dict[str, Any]): A dictionary representing an existing ReviewLog object.
+
+        Returns:
+            ReviewLog: A ReviewLog object created from the provided dictionary.
+        """
         rating = Rating(int(source_dict["rating"]))
         scheduled_days = int(source_dict["scheduled_days"])
         elapsed_days = int(source_dict["elapsed_days"])
         review = datetime.fromisoformat(source_dict["review"])
         state = State(int(source_dict["state"]))
-        return ReviewLog(rating, scheduled_days, elapsed_days, review, state)
+
+        return ReviewLog(
+            rating,
+            scheduled_days,
+            elapsed_days,
+            review,
+            state,
+        )
 
 
 class Card:
+    """
+    Represents a flashcard in the FSRS system.
+
+    Attributes:
+        due (datetime): The date and time when the card is due next.
+        stability (float): Core FSRS parameter used for scheduling.
+        difficulty (float): Core FSRS parameter used for scheduling.
+        elapsed_days (int): The number of days since the card was last reviewed.
+        scheduled_days (int): The number of days until the card is due next.
+        reps (int): The number of times the card has been reviewed in its history.
+        lapses (int): The number of times the card has been lapsed in its history.
+        state (State): The card's current learning state.
+        last_review (datetime): The date and time of the card's last review.
+    """
+
     def __init__(
         self,
+        card_id: Optional[int] = None,
+        set_name: Optional[str] = None,
+        front: Optional[str] = None,
+        back: Optional[str] = None,
         due: Optional[datetime] = None,
         stability: float = 0,
         difficulty: float = 0,
@@ -67,7 +154,15 @@ class Card:
         state: State = State.New,
         last_review: Optional[datetime] = None,
     ) -> None:
-        self.due = due if due else datetime.now()
+        self.card_id = card_id
+        self.set_name = set_name
+        self.front = front
+        self.back = back
+        if due is None:
+            self.due = datetime.now(timezone.utc)
+        else:
+            self.due = due
+
         self.stability = stability
         self.difficulty = difficulty
         self.elapsed_days = elapsed_days
@@ -75,10 +170,20 @@ class Card:
         self.reps = reps
         self.lapses = lapses
         self.state = state
-        self.last_review = last_review
+
+        if last_review is not None:
+            self.last_review = last_review
 
     def to_dict(self) -> dict[str, Any]:
-        return_dict = {
+        """
+        Returns a JSON-serializable dictionary representation of the Card object.
+
+        This method is specifically useful for storing Card objects in a database.
+
+        Returns:
+            dict: A dictionary representation of the Card object.
+        """
+        return {
             "due": self.due.isoformat(),
             "stability": self.stability,
             "difficulty": self.difficulty,
@@ -87,13 +192,20 @@ class Card:
             "reps": self.reps,
             "lapses": self.lapses,
             "state": self.state.value,
+            "last_review": self.last_review.isoformat() if self.last_review else None,
         }
-        if hasattr(self, "last_review"):
-            return_dict["last_review"] = self.last_review.isoformat()
-        return return_dict
 
     @staticmethod
     def from_dict(source_dict: dict[str, Any]) -> "Card":
+        """
+        Creates a Card object from an existing dictionary.
+
+        Args:
+            source_dict (dict[str, Any]): A dictionary representing an existing Card object.
+
+        Returns:
+            Card: A Card object created from the provided dictionary.
+        """
         due = datetime.fromisoformat(source_dict["due"])
         stability = float(source_dict["stability"])
         difficulty = float(source_dict["difficulty"])
@@ -104,9 +216,10 @@ class Card:
         state = State(int(source_dict["state"]))
         last_review = (
             datetime.fromisoformat(source_dict["last_review"])
-            if "last_review" in source_dict
+            if source_dict["last_review"]
             else None
         )
+
         return Card(
             due,
             stability,
@@ -144,15 +257,29 @@ class Card:
 
 @dataclass
 class SchedulingInfo:
+    """
+    Simple data class that bundles together an updated Card object and its corresponding ReviewLog object.
+
+    This class is specifically used to provide an updated card and its review log after a card has been reviewed.
+    """
+
     card: Card
     review_log: ReviewLog
 
 
 class SchedulingCards:
-    again: Card
-    hard: Card
-    good: Card
-    easy: Card
+    """
+    Manages the scheduling of a Card object for each of the four potential ratings.
+
+    A SchedulingCards object is created from an existing card and creates four new potential cards which
+    are updated according to whether the card will be chosen to be reviewed as Again, Hard, Good or Easy.
+
+    Attributes:
+        again (Card): An updated Card object that was rated Again.
+        hard (Card): An updated Card object that was rated Hard.
+        good (Card): An updated Card object that was rated Good.
+        easy (Card): An updated Card object that was rated Easy.
+    """
 
     def __init__(self, card: Card) -> None:
         self.again = copy.deepcopy(card)
@@ -240,9 +367,14 @@ class SchedulingCards:
 
 
 class Parameters:
-    request_retention: float
-    maximum_interval: int
-    w: tuple[float, ...]
+    """
+    The parameters used to configure the FSRS scheduler.
+
+    Attributes:
+        request_retention (float): The desired retention of the scheduler. Corresponds to the maximum retrievability a Card object can have before it is due.
+        maximum_interval (int): The maximum number of days into the future a Card object can be scheduled for next review.
+        w (tuple[float, ...]): The 19 model weights of the FSRS scheduler.
+    """
 
     def __init__(
         self,

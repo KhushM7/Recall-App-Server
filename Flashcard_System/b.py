@@ -1,31 +1,70 @@
-import copy
 import math
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-from flashcard_models import Parameters, SchedulingCards, SchedulingInfo, State, Rating
-from flashcard_db_operations import DatabaseOperations, Card, ReviewLog
+import copy
+
+from Flashcard_System.flashcard_db_operations import DatabaseOperations
+from Flashcard_System.flashcard_models import (
+    Parameters,
+    Card,
+    Rating,
+    ReviewLog,
+    SchedulingInfo,
+    State,
+    SchedulingCards,
+)
 
 
 class FSRS:
+    """
+    Attributes:
+        p (Parameters): Object for configuring the scheduler's model weights, desired retention and maximum interval.
+        DECAY (float): Constant used to model the forgetting curve and compute the length of a Card's next interval after being repeated.
+        FACTOR (float): Constant used to model the forgetting curve and compute the length of a Card's next interval after being repeated.
+    """
+
+    p: Parameters
+    DECAY: float
+    FACTOR: float
+
     def __init__(
         self,
+        db_operations: DatabaseOperations,
         w: Optional[tuple[float, ...]] = None,
         request_retention: Optional[float] = None,
         maximum_interval: Optional[int] = None,
     ) -> None:
+        """
+        Args:
+            db_operations (DatabaseOperations): The database operations instance for interacting with the database.
+            w (Optional[tuple[float, ...]]): The 19 model weights of the FSRS scheduler.
+            request_retention (Optional[float]): The desired retention of the scheduler. Corresponds to the maximum retrievability a Card object can have before it is due.
+            maximum_interval (Optional[int]): The maximum number of days into the future a Card object can be scheduled for next review.
+        """
+        self.db_operations = db_operations
         self.p = Parameters(w, request_retention, maximum_interval)
         self.DECAY = -0.5
         self.FACTOR = 0.9 ** (1 / self.DECAY) - 1
-        self.db = DatabaseOperations()
 
     def review_card(
         self, card: Card, rating: Rating, now: Optional[datetime] = None
     ) -> tuple[Card, ReviewLog]:
+        """
+        Args:
+            card (Card): The card being reviewed.
+            rating (Rating): The chosen rating for the card being reviewed.
+            now (Optional[datetime]): The date and time of the review.
+
+        Returns:
+            tuple: A tuple containing the updated, reviewed card and its corresponding review log.
+
+        Raises:
+            ValueError: If the `now` argument is not timezone-aware and set to UTC.
+        """
         scheduling_cards = self.repeat(card, now)
+
         card = scheduling_cards[rating].card
         review_log = scheduling_cards[rating].review_log
-        card_id = self.db.save_card(card)
-        self.db.save_review_log(card_id, review_log)
         return card, review_log
 
     def repeat(
@@ -104,11 +143,14 @@ class FSRS:
         s.hard.difficulty = self.next_difficulty(last_d, Rating.Hard)
         s.good.difficulty = self.next_difficulty(last_d, Rating.Good)
         s.easy.difficulty = self.next_difficulty(last_d, Rating.Easy)
-        if state in (State.Learning, State.Relearning):
+
+        if state == State.Learning or state == State.Relearning:
+            # compute short term stabilities
             s.again.stability = self.short_term_stability(last_s, Rating.Again)
             s.hard.stability = self.short_term_stability(last_s, Rating.Hard)
             s.good.stability = self.short_term_stability(last_s, Rating.Good)
             s.easy.stability = self.short_term_stability(last_s, Rating.Easy)
+
         elif state == State.Review:
             s.again.stability = self.next_forget_stability(
                 last_d, last_s, retrievability
@@ -127,6 +169,7 @@ class FSRS:
         return max(self.p.w[r - 1], 0.1)
 
     def init_difficulty(self, r: Rating) -> float:
+        # compute initial difficulty and clamp it between 1 and 10
         return min(max(self.p.w[4] - math.exp(self.p.w[5] * (r - 1)) + 1, 1), 10)
 
     def forgetting_curve(self, elapsed_days: int, stability: float) -> float:
@@ -140,6 +183,7 @@ class FSRS:
 
     def next_difficulty(self, d: float, r: Rating) -> float:
         next_d = d - self.p.w[6] * (r - 3)
+
         return min(
             max(self.mean_reversion(self.init_difficulty(Rating.Easy), next_d), 1), 10
         )

@@ -24,7 +24,7 @@ def fetch_flashcard_data(cursor, flashcard_id: int):
     """
     query = """
         SELECT flashcard_id, set_name, question, answer, stability, difficulty, last_review, reps, state
-        FROM Flashcards 
+        FROM Flashcards1 
         WHERE flashcard_id = ?
     """
     cursor.execute(query, (flashcard_id,))
@@ -82,7 +82,7 @@ def update_flashcard(card: Card):
             cursor = connection.cursor()
             cursor.execute(
                 """
-                UPDATE Flashcards
+                UPDATE Flashcards1
                 SET stability = ?, difficulty = ?, last_review = ?, reps = ? , state = ?
                 WHERE flashcard_id = ?
                 """,
