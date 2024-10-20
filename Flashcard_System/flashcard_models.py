@@ -66,7 +66,6 @@ class ReviewLog:
         difficulty: float = 0,
         reps: int = 0,
         lapses: int = 0,
-        last_review: Optional[datetime] = None,
     ) -> None:
         self.rating = rating
         self.scheduled_days = scheduled_days
@@ -77,7 +76,6 @@ class ReviewLog:
         self.difficulty = difficulty
         self.reps = reps
         self.lapses = lapses
-        self.last_review = last_review
 
     def to_dict(self) -> dict[str, Union[int, str]]:
         """
@@ -135,7 +133,6 @@ class Card:
         reps (int): The number of times the card has been reviewed in its history.
         lapses (int): The number of times the card has been lapsed in its history.
         state (State): The card's current learning state.
-        last_review (datetime): The date and time of the card's last review.
     """
 
     def __init__(
@@ -152,7 +149,6 @@ class Card:
         reps: int = 0,
         lapses: int = 0,
         state: State = State.New,
-        last_review: Optional[datetime] = None,
     ) -> None:
         self.card_id = card_id
         self.set_name = set_name
@@ -170,9 +166,6 @@ class Card:
         self.reps = reps
         self.lapses = lapses
         self.state = state
-
-        if last_review is not None:
-            self.last_review = last_review
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -192,7 +185,7 @@ class Card:
             "reps": self.reps,
             "lapses": self.lapses,
             "state": self.state.value,
-            "last_review": self.last_review.isoformat() if self.last_review else None,
+            "review": self.review.isoformat() if self.review else None,
         }
 
     @staticmethod
@@ -214,9 +207,9 @@ class Card:
         reps = int(source_dict["reps"])
         lapses = int(source_dict["lapses"])
         state = State(int(source_dict["state"]))
-        last_review = (
-            datetime.fromisoformat(source_dict["last_review"])
-            if source_dict["last_review"]
+        review = (
+            datetime.fromisoformat(source_dict["review"])
+            if source_dict["review"]
             else None
         )
 
@@ -229,7 +222,7 @@ class Card:
             reps,
             lapses,
             state,
-            last_review,
+            review,
         )
 
     def get_retrievability(self, now: Optional[datetime] = None) -> float:
@@ -249,7 +242,7 @@ class Card:
             now = datetime.now(timezone.utc)
 
         if self.state in (State.Learning, State.Review, State.Relearning):
-            elapsed_days = max(0, (now - self.last_review).days)
+            elapsed_days = max(0, (now - self.review).days)
             return (1 + FACTOR * elapsed_days / self.stability) ** DECAY
         else:
             return 0

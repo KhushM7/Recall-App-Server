@@ -71,7 +71,9 @@ class FSRS:
         self, card: Card, now: Optional[datetime] = None
     ) -> dict[Rating, SchedulingInfo]:
         if now is None:
-            now = datetime.now(timezone.utc)
+            # now = datetime.now(timezone.utc)
+            card.review = datetime.now(timezone.utc)
+            now = card.review + timedelta(days=card.scheduled_days)
 
         if (now.tzinfo is None) or (now.tzinfo != timezone.utc):
             raise ValueError("datetime must be timezone-aware and set to UTC")
@@ -80,8 +82,8 @@ class FSRS:
         if card.state == State.New:
             card.elapsed_days = 0
         else:
-            card.elapsed_days = (now - card.last_review).days
-        card.last_review = now
+            card.elapsed_days = (now - card.review).days
+        # card.review = now
         card.reps += 1
         s = SchedulingCards(card)
         s.update_state(card.state)

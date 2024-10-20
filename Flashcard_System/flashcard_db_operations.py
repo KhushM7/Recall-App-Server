@@ -39,9 +39,9 @@ class DatabaseOperations:
             cursor.execute(
                 """
                 INSERT INTO UserPerformance (
-                    user_id, card_id, stability, difficulty, rating, scheduled_days, elapsed_days, review, state, reps, lapses, last_review
+                    user_id, card_id, stability, difficulty, rating, scheduled_days, elapsed_days, review, state, reps, lapses
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 ON CONFLICT(user_id, card_id) DO UPDATE SET
                     stability=excluded.stability,
@@ -52,8 +52,7 @@ class DatabaseOperations:
                     review=excluded.review,
                     state=excluded.state,
                     reps=excluded.reps,
-                    lapses=excluded.lapses,
-                    last_review=excluded.last_review
+                    lapses=excluded.lapses
                 """,
                 (
                     user_id,
@@ -67,11 +66,6 @@ class DatabaseOperations:
                     review_log.state.value,
                     review_log.reps,
                     review_log.lapses,
-                    (
-                        review_log.last_review.isoformat()
-                        if review_log.last_review
-                        else None
-                    ),
                 ),
             )
             conn.commit()
