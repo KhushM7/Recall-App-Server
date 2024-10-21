@@ -8,7 +8,7 @@ Classes:
     FSRS: The FSRS scheduler.
 """
 
-from .models import (
+from models import (
     Card,
     ReviewLog,
     Rating,
@@ -79,13 +79,43 @@ class FSRS:
         card = scheduling_cards[rating].card
         review_log = scheduling_cards[rating].review_log
 
+        # print(
+        #     f"""
+        # Card Attributes:
+        #     CardID: {card.card_id},
+        #     Due: {card.due},
+        #     Stability: {card.stability},
+        #     Difficulty: {card.difficulty},
+        #     Elapsed Days: {card.elapsed_days},
+        #     Scheduled Days: {card.scheduled_days},
+        #     Reps: {card.reps},
+        #     Lapses: {card.lapses},
+        #     State: {card.state},
+        #     Last Review: {card.last_review if hasattr(card, 'last_review') else 'N/A'}
+        # """
+        # )
+        #
+        # # Assuming `review_log` is an instance of the ReviewLog class
+        # print(
+        #     f"""
+        # ReviewLog Attributes:
+        #     Rating: {review_log.rating},
+        #     Scheduled Days: {review_log.scheduled_days},
+        #     Elapsed Days: {review_log.elapsed_days},
+        #     Review: {review_log.review},
+        #     State: {review_log.state}
+        # """
+        # )
         return card, review_log
 
     def repeat(
         self, card: Card, now: Optional[datetime] = None
     ) -> dict[Rating, SchedulingInfo]:
         if now is None:
-            now = datetime.now(timezone.utc)
+            # now = datetime.now(timezone.utc)
+            # Simulate the current time for testing purposes
+            if hasattr(card, "due"):
+                now = card.due
 
         if (now.tzinfo is None) or (now.tzinfo != timezone.utc):
             raise ValueError("datetime must be timezone-aware and set to UTC")

@@ -36,6 +36,21 @@ class DatabaseOperations:
     ) -> None:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
+            print(
+                f"""
+                            UserID: {user_id},
+                            CardID: {card_id},
+                            Stability: {review_log.stability},
+                            Difficulty: {review_log.difficulty},
+                            Rating: {review_log.rating.value},
+                            Scheduled Days: {review_log.scheduled_days},
+                            Elapsed Days: {review_log.elapsed_days},
+                            Review: {review_log.review.isoformat()},
+                            State: {review_log.state.value},
+                            Reps: {review_log.reps},
+                            Lapses: {review_log.lapses}
+                        """
+            )
             cursor.execute(
                 """
                 INSERT INTO UserPerformance (
