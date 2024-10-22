@@ -183,20 +183,22 @@ class DatabaseOperations:
 
     def mark_cards_as_priority(self, user_id: int, review_date: str) -> None:
         """
-        Mark unreviewed cards as priority if they are carried over to the next day,
-        and update their next_review_date to be the next day.
+        Mark unreviewed cards as priority and increment their priority level,
+        also update their next review date to the next day.
         """
+        # Calculate the next day
         next_day = (
             (datetime.strptime(review_date, "%Y-%m-%d") + timedelta(days=1))
             .date()
             .isoformat()
         )
 
+        # Increment priority and update next review date for unreviewed cards
         self.conn.execute(
             """
             UPDATE UserPerformance
-            SET priority = 1, next_review_date = ?
-            WHERE user_id = ? AND next_review_date <= ? AND priority = 0
+            SET priority = priority + 1, next_review_date = ?
+            WHERE user_id = ? AND next_review_date <= ? AND priority >= 0
         """,
             (next_day, user_id, review_date),
         )
