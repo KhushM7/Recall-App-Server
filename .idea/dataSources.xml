@@ -16,7 +16,7 @@
         </library>
       </libraries>
     </data-source>
-    <data-source source="LOCAL" name="physics_revision_app" uuid="eaedf099-8c4a-4466-94b5-f3d08ace08a3">
+    <data-source source="LOCAL" name="physics_revision_app" uuid="7efe9413-4ca6-4c24-9f87-87b32ecf22df">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>

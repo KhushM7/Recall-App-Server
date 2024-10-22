@@ -9,7 +9,7 @@ Classes:
     Rating: Enum representing the four possible ratings when reviewing a card.
     ReviewLog: Represents the log entry of Card that has been reviewed.
     Card: Represents a flashcard in the FSRS system.
-    SchedulingInfo: Simple data class that bundles together an updated Card object and it's corresponding ReviewLog object.
+    SchedulingInfo: Simple data class that bundles together an updated Card object, and it's corresponding ReviewLog object.
     SchedulingCards: Manages the scheduling of a Card object for each of the four potential ratings.
     Parameters: The parameters used to configure the FSRS scheduler.
 """
@@ -146,6 +146,7 @@ class Card:
         last_review (datetime): The date and time of the card's last review.
     """
 
+    card_id: int
     due: datetime
     stability: float
     difficulty: float
@@ -153,11 +154,12 @@ class Card:
     scheduled_days: int
     reps: int
     lapses: int
-    state: State
+    state: State = State.New
     last_review: datetime
 
     def __init__(
         self,
+        card_id: int,
         due: Optional[datetime] = None,
         stability: float = 0,
         difficulty: float = 0,
@@ -184,6 +186,7 @@ class Card:
             state (State): The card's current learning state.
             last_review (Optional[datetime]): The date and time of the card's last review.
         """
+        self.card_id = card_id
         if due is None:
             self.due = datetime.now(timezone.utc)
         else:
@@ -288,9 +291,9 @@ class Card:
 @dataclass
 class SchedulingInfo:
     """
-    Simple data class that bundles together an updated Card object and it's corresponding ReviewLog object.
+    Simple data class that bundles together an updated Card object, and it's corresponding ReviewLog object.
 
-    This class is specifically used to provide an updated card and it's review log after a card has been reviewed.
+    This class is specifically used to provide an updated card, and it's review log after a card has been reviewed.
     """
 
     card: Card

@@ -1,499 +1,23 @@
-I need help fixing my code. I am going to send you 2 source files which I have based my adapted version off of and 1 file of my code. Can you acknowledge so I can send you the code across prompts
-
-models.py
-
-"""
-fsrs.models
------------
-
-This module defines the core classes used by the FSRS scheduler.
-
-Classes:
-    State: Enum representing the learning state of a Card object.
-    Rating: Enum representing the four possible ratings when reviewing a card.
-    ReviewLog: Represents the log entry of Card that has been reviewed.
-    Card: Represents a flashcard in the FSRS system.
-    SchedulingInfo: Simple data class that bundles together an updated Card object and it's corresponding ReviewLog object.
-    SchedulingCards: Manages the scheduling of a Card object for each of the four potential ratings.
-    Parameters: The parameters used to configure the FSRS scheduler.
-"""
-
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-import copy
-from typing import Any, Optional, Union
-from enum import IntEnum
-
-
-class State(IntEnum):
-    """
-    Enum representing the learning state of a Card object.
-    """
-
-    New = 0
-    Learning = 1
-    Review = 2
-    Relearning = 3
-
-
-class Rating(IntEnum):
-    """
-    Enum representing the four possible ratings when reviewing a card.
-    """
-
-    Again = 1
-    Hard = 2
-    Good = 3
-    Easy = 4
-
-
-class ReviewLog:
-    """
-    Represents the log entry of Card that has been reviewed.
-
-    Attributes:
-        rating (Rating): The rating given to the card during the review.
-        scheduled_days (int): The number of days until the card is due next.
-        elapsed_days (int): The number of days since the card was last reviewed.
-        review (datetime): The date and time of the review.
-        state (State): The learning state of the card before the review.
-    """
-
-    rating: Rating
-    scheduled_days: int
-    elapsed_days: int
-    review: datetime
-    state: State
-
-    def __init__(
-        self,
-        rating: Rating,
-        scheduled_days: int,
-        elapsed_days: int,
-        review: datetime,
-        state: State,
-    ) -> None:
-        """
-        Creates and initializes a ReviewLog object.
-
-        Args:
-            rating (Rating): The rating given to the card during the review.
-            scheduled_days (int): The number of days until the card is due next.
-            elapsed_days (int): The number of days since the card was last reviewed.
-            review (datetime): The date and time of the review.
-            state (State): The learning state of the card before the review.
-        """
-        self.rating = rating
-        self.scheduled_days = scheduled_days
-        self.elapsed_days = elapsed_days
-        self.review = review
-        self.state = state
-
-    def to_dict(self) -> dict[str, Union[int, str]]:
-        """
-        Returns a JSON-serializable dictionary representation of the ReviewLog object.
-
-        This method is specifically useful for storing ReviewLog objects in a database.
-
-        Returns:
-            dict: A dictionary representation of the ReviewLog object.
-        """
-        return_dict = {
-            "rating": self.rating.value,
-            "scheduled_days": self.scheduled_days,
-            "elapsed_days": self.elapsed_days,
-            "review": self.review.isoformat(),
-            "state": self.state.value,
-        }
-
-        return return_dict
-
-    @staticmethod
-    def from_dict(source_dict: dict[str, Any]) -> "ReviewLog":
-        """
-        Creates a ReviewLog object from an existing dictionary.
-
-        Args:
-            source_dict (dict[str, Any]): A dictionary representing an existing ReviewLog object.
-
-        Returns:
-            ReviewLog: A ReviewLog object created from the provided dictionary.
-        """
-        rating = Rating(int(source_dict["rating"]))
-        scheduled_days = int(source_dict["scheduled_days"])
-        elapsed_days = int(source_dict["elapsed_days"])
-        review = datetime.fromisoformat(source_dict["review"])
-        state = State(int(source_dict["state"]))
-
-        return ReviewLog(
-            rating,
-            scheduled_days,
-            elapsed_days,
-            review,
-            state,
-        )
-
-
-class Card:
-    """
-    Represents a flashcard in the FSRS system.
-
-    Attributes:
-        due (datetime): The date and time when the card is due next.
-        stability (float): Core FSRS parameter used for scheduling.
-        difficulty (float): Core FSRS parameter used for scheduling.
-        elapsed_days (int): The number of days since the card was last reviewed.
-        scheduled_days (int): The number of days until the card is due next.
-        reps (int): The number of times the card has been reviewed in its history.
-        lapses (int): The number of times the card has been lapsed in its history.
-        state (State): The card's current learning state.
-        last_review (datetime): The date and time of the card's last review.
-    """
-
-    due: datetime
-    stability: float
-    difficulty: float
-    elapsed_days: int
-    scheduled_days: int
-    reps: int
-    lapses: int
-    state: State
-    last_review: datetime
-
-    def __init__(
-        self,
-        due: Optional[datetime] = None,
-        stability: float = 0,
-        difficulty: float = 0,
-        elapsed_days: int = 0,
-        scheduled_days: int = 0,
-        reps: int = 0,
-        lapses: int = 0,
-        state: State = State.New,
-        last_review: Optional[datetime] = None,
-    ) -> None:
-        """
-        Creates and initializes a Card object.
-
-        Note that each of the arguments for this method are optional and can be omitted when creating a new Card.
-
-        Args:
-            due (Optional[datetime]): The date and time when the card is due next.
-            stability (float): Core FSRS parameter used for scheduling.
-            difficulty (float): Core FSRS parameter used for scheduling.
-            elapsed_days (int): The number of days since the card was last reviewed.
-            scheduled_days (int): The number of days until the card is due next.
-            reps (int): The number of times the card has been reviewed in its history.
-            lapses (int): The number of times the card has been lapsed in its history.
-            state (State): The card's current learning state.
-            last_review (Optional[datetime]): The date and time of the card's last review.
-        """
-        if due is None:
-            self.due = datetime.now(timezone.utc)
-        else:
-            self.due = due
-
-        self.stability = stability
-        self.difficulty = difficulty
-        self.elapsed_days = elapsed_days
-        self.scheduled_days = scheduled_days
-        self.reps = reps
-        self.lapses = lapses
-        self.state = state
-
-        if last_review is not None:
-            self.last_review = last_review
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Returns a JSON-serializable dictionary representation of the Card object.
-
-        This method is specifically useful for storing Card objects in a database.
-
-        Returns:
-            dict: A dictionary representation of the Card object.
-        """
-        return_dict = {
-            "due": self.due.isoformat(),
-            "stability": self.stability,
-            "difficulty": self.difficulty,
-            "elapsed_days": self.elapsed_days,
-            "scheduled_days": self.scheduled_days,
-            "reps": self.reps,
-            "lapses": self.lapses,
-            "state": self.state.value,
-        }
-
-        if hasattr(self, "last_review"):
-            return_dict["last_review"] = self.last_review.isoformat()
-
-        return return_dict
-
-    @staticmethod
-    def from_dict(source_dict: dict[str, Any]) -> "Card":
-        """
-        Creates a Card object from an existing dictionary.
-
-        Args:
-            source_dict (dict[str, Any]): A dictionary representing an existing Card object.
-
-        Returns:
-            ReviewLog: A Card object created from the provided dictionary.
-        """
-        due = datetime.fromisoformat(source_dict["due"])
-        stability = float(source_dict["stability"])
-        difficulty = float(source_dict["difficulty"])
-        elapsed_days = int(source_dict["elapsed_days"])
-        scheduled_days = int(source_dict["scheduled_days"])
-        reps = int(source_dict["reps"])
-        lapses = int(source_dict["lapses"])
-        state = State(int(source_dict["state"]))
-
-        if "last_review" in source_dict:
-            last_review = datetime.fromisoformat(source_dict["last_review"])
-        else:
-            last_review = None
-
-        return Card(
-            due,
-            stability,
-            difficulty,
-            elapsed_days,
-            scheduled_days,
-            reps,
-            lapses,
-            state,
-            last_review,
-        )
-
-    def get_retrievability(self, now: Optional[datetime] = None) -> float:
-        """
-        Calculates the Card object's current retrievability for a given date and time.
-
-        Args:
-            now (datetime): The current date and time
-
-        Returns:
-            float: The retrievability of the Card object.
-        """
-        DECAY = -0.5
-        FACTOR = 0.9 ** (1 / DECAY) - 1
-
-        if now is None:
-            now = datetime.now(timezone.utc)
-
-        if self.state in (State.Learning, State.Review, State.Relearning):
-            elapsed_days = max(0, (now - self.last_review).days)
-            return (1 + FACTOR * elapsed_days / self.stability) ** DECAY
-        else:
-            return 0
-
-
-@dataclass
-class SchedulingInfo:
-    """
-    Simple data class that bundles together an updated Card object and it's corresponding ReviewLog object.
-
-    This class is specifically used to provide an updated card and it's review log after a card has been reviewed.
-    """
-
-    card: Card
-    review_log: ReviewLog
-
-
-class SchedulingCards:
-    """
-    Manages the scheduling of a Card object for each of the four potential ratings.
-
-    A SchedulingCards object is created from an existing card and creates four new potential cards which
-    are updated according to whether the card will be chosen to be reviewed as Again, Hard, Good or Easy.
-
-    Attributes:
-        again (Card): An updated Card object that was rated Again.
-        hard (Card): An updated Card object that was rated Hard.
-        good (Card): An updated Card object that was rated Good.
-        easy (Card): An updated Card object that was rated Easy.
-    """
-
-    again: Card
-    hard: Card
-    good: Card
-    easy: Card
-
-    def __init__(self, card: Card) -> None:
-        self.again = copy.deepcopy(card)
-        self.hard = copy.deepcopy(card)
-        self.good = copy.deepcopy(card)
-        self.easy = copy.deepcopy(card)
-
-    def update_state(self, state: State) -> None:
-        if state == State.New:
-            self.again.state = State.Learning
-            self.hard.state = State.Learning
-            self.good.state = State.Learning
-            self.easy.state = State.Review
-        elif state == State.Learning or state == State.Relearning:
-            self.again.state = state
-            self.hard.state = state
-            self.good.state = State.Review
-            self.easy.state = State.Review
-        elif state == State.Review:
-            self.again.state = State.Relearning
-            self.hard.state = State.Review
-            self.good.state = State.Review
-            self.easy.state = State.Review
-            self.again.lapses += 1
-
-    def schedule(
-        self,
-        now: datetime,
-        hard_interval: int,
-        good_interval: int,
-        easy_interval: int,
-    ) -> None:
-        self.again.scheduled_days = 0
-        self.hard.scheduled_days = hard_interval
-        self.good.scheduled_days = good_interval
-        self.easy.scheduled_days = easy_interval
-        self.again.due = now + timedelta(minutes=5)
-        if hard_interval > 0:
-            self.hard.due = now + timedelta(days=hard_interval)
-        else:
-            self.hard.due = now + timedelta(minutes=10)
-        self.good.due = now + timedelta(days=good_interval)
-        self.easy.due = now + timedelta(days=easy_interval)
-
-    def record_log(self, card: Card, now: datetime) -> dict[Rating, SchedulingInfo]:
-        return {
-            Rating.Again: SchedulingInfo(
-                self.again,
-                ReviewLog(
-                    Rating.Again,
-                    self.again.scheduled_days,
-                    card.elapsed_days,
-                    now,
-                    card.state,
-                ),
-            ),
-            Rating.Hard: SchedulingInfo(
-                self.hard,
-                ReviewLog(
-                    Rating.Hard,
-                    self.hard.scheduled_days,
-                    card.elapsed_days,
-                    now,
-                    card.state,
-                ),
-            ),
-            Rating.Good: SchedulingInfo(
-                self.good,
-                ReviewLog(
-                    Rating.Good,
-                    self.good.scheduled_days,
-                    card.elapsed_days,
-                    now,
-                    card.state,
-                ),
-            ),
-            Rating.Easy: SchedulingInfo(
-                self.easy,
-                ReviewLog(
-                    Rating.Easy,
-                    self.easy.scheduled_days,
-                    card.elapsed_days,
-                    now,
-                    card.state,
-                ),
-            ),
-        }
-
-
-class Parameters:
-    """
-    The parameters used to configure the FSRS scheduler.
-
-    Attributes:
-        request_retention (float): The desired retention of the scheduler. Corresponds to the maximum retrievability a Card object can have before it is due.
-        maximum_interval (int): The maximum number of days into the future a Card object can be scheduled for next review.
-        w (tuple[float, ...]): The 19 model weights of the FSRS scheduler.
-    """
-
-    request_retention: float
-    maximum_interval: int
-    w: tuple[float, ...]
-
-    def __init__(
-        self,
-        w: Optional[tuple[float, ...]] = None,
-        request_retention: Optional[float] = None,
-        maximum_interval: Optional[int] = None,
-    ) -> None:
-        self.w = (
-            w
-            if w is not None
-            else (
-                0.4072,
-                1.1829,
-                3.1262,
-                15.4722,
-                7.2102,
-                0.5316,
-                1.0651,
-                0.0234,
-                1.616,
-                0.1544,
-                1.0824,
-                1.9813,
-                0.0953,
-                0.2975,
-                2.2042,
-                0.2407,
-                2.9466,
-                0.5034,
-                0.6567,
-            )
-        )
-        self.request_retention = (
-            request_retention if request_retention is not None else 0.9
-        )
-        self.maximum_interval = (
-            maximum_interval if maximum_interval is not None else 36500
-        )
-
-
-fsrs.py
-
-"""
-fsrs.fsrs
----------
-
-This module defines the FSRS scheduler.
-
-Classes:
-    FSRS: The FSRS scheduler.
-"""
-
-from .models import (
-    Card,
-    ReviewLog,
-    Rating,
-    State,
-    SchedulingCards,
-    SchedulingInfo,
-    Parameters,
-)
+My FSRS File:
 import math
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 import copy
 
+from Flashcard_System.flashcard_db_operations import DatabaseOperations
+from Flashcard_System.flashcard_models import (
+    Parameters,
+    Card,
+    Rating,
+    ReviewLog,
+    SchedulingInfo,
+    State,
+    SchedulingCards,
+)
+
 
 class FSRS:
     """
-    The FSRS scheduler.
-
-    Enables the reviewing and future scheduling of cards according to the FSRS algorithm.
-
     Attributes:
         p (Parameters): Object for configuring the scheduler's model weights, desired retention and maximum interval.
         DECAY (float): Constant used to model the forgetting curve and compute the length of a Card's next interval after being repeated.
@@ -506,18 +30,19 @@ class FSRS:
 
     def __init__(
         self,
+        db_operations: DatabaseOperations,
         w: Optional[tuple[float, ...]] = None,
         request_retention: Optional[float] = None,
         maximum_interval: Optional[int] = None,
     ) -> None:
         """
-        Initializes the FSRS scheduler.
-
         Args:
+            db_operations (DatabaseOperations): The database operations instance for interacting with the database.
             w (Optional[tuple[float, ...]]): The 19 model weights of the FSRS scheduler.
             request_retention (Optional[float]): The desired retention of the scheduler. Corresponds to the maximum retrievability a Card object can have before it is due.
             maximum_interval (Optional[int]): The maximum number of days into the future a Card object can be scheduled for next review.
         """
+        self.db_operations = db_operations
         self.p = Parameters(w, request_retention, maximum_interval)
         self.DECAY = -0.5
         self.FACTOR = 0.9 ** (1 / self.DECAY) - 1
@@ -526,8 +51,6 @@ class FSRS:
         self, card: Card, rating: Rating, now: Optional[datetime] = None
     ) -> tuple[Card, ReviewLog]:
         """
-        Reviews a card for a given rating.
-
         Args:
             card (Card): The card being reviewed.
             rating (Rating): The chosen rating for the card being reviewed.
@@ -543,14 +66,15 @@ class FSRS:
 
         card = scheduling_cards[rating].card
         review_log = scheduling_cards[rating].review_log
-
         return card, review_log
 
     def repeat(
         self, card: Card, now: Optional[datetime] = None
     ) -> dict[Rating, SchedulingInfo]:
         if now is None:
-            now = datetime.now(timezone.utc)
+            # now = datetime.now(timezone.utc)
+            card.review = datetime.now(timezone.utc)
+            now = card.review + timedelta(days=card.scheduled_days)
 
         if (now.tzinfo is None) or (now.tzinfo != timezone.utc):
             raise ValueError("datetime must be timezone-aware and set to UTC")
@@ -559,8 +83,8 @@ class FSRS:
         if card.state == State.New:
             card.elapsed_days = 0
         else:
-            card.elapsed_days = (now - card.last_review).days
-        card.last_review = now
+            card.elapsed_days = (now - card.review).days
+        # card.review = now
         card.reps += 1
         s = SchedulingCards(card)
         s.update_state(card.state)
@@ -696,15 +220,19 @@ class FSRS:
             * math.exp((1 - r) * self.p.w[14])
         )
 
-
-from datetime import datetime, timedelta, timezone
-from enum import IntEnum
-from functools import lru_cache
-import math
+My Models File:
+from dataclasses import dataclass
+from datetime import datetime, timezone, timedelta
 import copy
+from typing import Any, Optional, Union
+from enum import IntEnum
 
 
 class State(IntEnum):
+    """
+    Enum representing the learning state of a Card object.
+    """
+
     New = 0
     Learning = 1
     Review = 2
@@ -712,259 +240,351 @@ class State(IntEnum):
 
 
 class Rating(IntEnum):
+    """
+    Enum representing the four possible ratings when reviewing a card.
+    """
+
     Again = 1
     Hard = 2
     Good = 3
     Easy = 4
 
 
-class Flashcard:
+class ReviewLog:
     """
-    Flashcard class directly interacts with the Flashcards table.
-    """
+    Represents the log entry of Card that has been reviewed.
 
-    def __init__(self, flashcard_id, db_conn):
-        self.flashcard_id = flashcard_id
-        self.db_conn = db_conn
-        self.load_from_db()
-
-    def load_from_db(self):
-        # Simulated DB Query: Replace with actual query code
-        query = f"SELECT set_name, question, answer, stability, difficulty, last_review, reps, state FROM Flashcards WHERE flashcard_id = {self.flashcard_id}"
-        row = self.db_conn.execute(query).fetchone()
-
-        self.set_name = row["set_name"]
-        self.question = row["question"]
-        self.answer = row["answer"]
-        self.stability = float(row["stability"])
-        self.difficulty = float(row["difficulty"])
-        self.last_review = row["last_review"]
-        self.reps = int(row["reps"])
-        self.state = State(row["state"])
-
-    def save_to_db(self):
-        # Simulated DB Update: Replace with actual update code
-        query = f"UPDATE Flashcards SET stability = {self.stability}, difficulty = {self.difficulty}, last_review = '{self.last_review}', reps = {self.reps}, state = {int(self.state)} WHERE flashcard_id = {self.flashcard_id}"
-        self.db_conn.execute(query)
-        self.db_conn.commit()
-
-
-class UserPerformance:
-    """
-    UserPerformance class interacts with the UserPerformance table.
+    Attributes:
+        rating (Rating): The rating given to the card during the review.
+        scheduled_days (int): The number of days until the card is due next.
+        elapsed_days (int): The number of days since the card was last reviewed.
+        review (datetime): The date and time of the review.
+        state (State): The learning state of the card before the review.
     """
 
-    def __init__(self, flashcard_id, user_id, db_conn):
-        self.flashcard_id = flashcard_id
-        self.user_id = user_id
-        self.db_conn = db_conn
-        self.load_from_db()
+    def __init__(
+        self,
+        rating: Rating,
+        scheduled_days: int,
+        elapsed_days: int,
+        review: datetime,
+        state: State,
+        stability: float = 0,
+        difficulty: float = 0,
+        reps: int = 0,
+        lapses: int = 0,
+    ) -> None:
+        self.rating = rating
+        self.scheduled_days = scheduled_days
+        self.elapsed_days = elapsed_days
+        self.review = review
+        self.state = state
+        self.stability = stability
+        self.difficulty = difficulty
+        self.reps = reps
+        self.lapses = lapses
 
-    def load_from_db(self):
-        # Simulated DB Query: Replace with actual query code
-        query = f"SELECT average_rating, last_rating, response_time, next_review FROM UserPerformance WHERE flashcard_id = {self.flashcard_id} AND user_id = {self.user_id}"
-        row = self.db_conn.execute(query).fetchone()
+    def to_dict(self) -> dict[str, Union[int, str]]:
+        """
+        Returns a JSON-serializable dictionary representation of the ReviewLog object.
 
-        self.average_rating = float(row["average_rating"])
-        self.last_rating = Rating(int(row["last_rating"]))
-        self.response_time = float(row["response_time"])
-        self.next_review = row["next_review"]
+        This method is specifically useful for storing ReviewLog objects in a database.
 
-    def save_to_db(self):
-        # Simulated DB Update: Replace with actual update code
-        query = f"UPDATE UserPerformance SET average_rating = {self.average_rating}, last_rating = {int(self.last_rating)}, response_time = {self.response_time}, next_review = '{self.next_review}' WHERE flashcard_id = {self.flashcard_id} AND user_id = {self.user_id}"
-        self.db_conn.execute(query)
-        self.db_conn.commit()
+        Returns:
+            dict: A dictionary representation of the ReviewLog object.
+        """
+        return {
+            "rating": self.rating.value,
+            "scheduled_days": self.scheduled_days,
+            "elapsed_days": self.elapsed_days,
+            "review": self.review.isoformat(),
+            "state": self.state.value,
+        }
+
+    @staticmethod
+    def from_dict(source_dict: dict[str, Any]) -> "ReviewLog":
+        """
+        Creates a ReviewLog object from an existing dictionary.
+
+        Args:
+            source_dict (dict[str, Any]): A dictionary representing an existing ReviewLog object.
+
+        Returns:
+            ReviewLog: A ReviewLog object created from the provided dictionary.
+        """
+        rating = Rating(int(source_dict["rating"]))
+        scheduled_days = int(source_dict["scheduled_days"])
+        elapsed_days = int(source_dict["elapsed_days"])
+        review = datetime.fromisoformat(source_dict["review"])
+        state = State(int(source_dict["state"]))
+
+        return ReviewLog(
+            rating,
+            scheduled_days,
+            elapsed_days,
+            review,
+            state,
+        )
 
 
-class FSRS:
+class Card:
     """
-    FSRS scheduler handles the review logic and interacts with the database via Flashcard and UserPerformance.
+    Represents a flashcard in the FSRS system.
+
+    Attributes:
+        due (datetime): The date and time when the card is due next.
+        stability (float): Core FSRS parameter used for scheduling.
+        difficulty (float): Core FSRS parameter used for scheduling.
+        elapsed_days (int): The number of days since the card was last reviewed.
+        scheduled_days (int): The number of days until the card is due next.
+        reps (int): The number of times the card has been reviewed in its history.
+        lapses (int): The number of times the card has been lapsed in its history.
+        state (State): The card's current learning state.
     """
 
-    def __init__(self, db_conn, w=None, request_retention=0.9, maximum_interval=36500):
-        self.db_conn = db_conn
-        self.p = Parameters(w, request_retention, maximum_interval)
-        self.DECAY = -0.5
-        self.FACTOR = 0.9 ** (1 / self.DECAY) - 1
+    def __init__(
+        self,
+        card_id: Optional[int] = None,
+        set_name: Optional[str] = None,
+        front: Optional[str] = None,
+        back: Optional[str] = None,
+        due: Optional[datetime] = None,
+        stability: float = 0,
+        difficulty: float = 0,
+        elapsed_days: int = 0,
+        scheduled_days: int = 0,
+        reps: int = 0,
+        lapses: int = 0,
+        state: State = State.New,
+    ) -> None:
+        self.card_id = card_id
+        self.set_name = set_name
+        self.front = front
+        self.back = back
+        if due is None:
+            self.due = datetime.now(timezone.utc)
+        else:
+            self.due = due
 
-    def review(self, flashcard_id, user_id, rating, now=None):
-        flashcard = Flashcard(flashcard_id, self.db_conn)
-        user_performance = UserPerformance(flashcard_id, user_id, self.db_conn)
+        self.stability = stability
+        self.difficulty = difficulty
+        self.elapsed_days = elapsed_days
+        self.scheduled_days = scheduled_days
+        self.reps = reps
+        self.lapses = lapses
+        self.state = state
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Returns a JSON-serializable dictionary representation of the Card object.
+
+        This method is specifically useful for storing Card objects in a database.
+
+        Returns:
+            dict: A dictionary representation of the Card object.
+        """
+        return {
+            "due": self.due.isoformat(),
+            "stability": self.stability,
+            "difficulty": self.difficulty,
+            "elapsed_days": self.elapsed_days,
+            "scheduled_days": self.scheduled_days,
+            "reps": self.reps,
+            "lapses": self.lapses,
+            "state": self.state.value,
+            "review": self.review.isoformat() if self.review else None,
+        }
+
+    @staticmethod
+    def from_dict(source_dict: dict[str, Any]) -> "Card":
+        """
+        Creates a Card object from an existing dictionary.
+
+        Args:
+            source_dict (dict[str, Any]): A dictionary representing an existing Card object.
+
+        Returns:
+            Card: A Card object created from the provided dictionary.
+        """
+        due = datetime.fromisoformat(source_dict["due"])
+        stability = float(source_dict["stability"])
+        difficulty = float(source_dict["difficulty"])
+        elapsed_days = int(source_dict["elapsed_days"])
+        scheduled_days = int(source_dict["scheduled_days"])
+        reps = int(source_dict["reps"])
+        lapses = int(source_dict["lapses"])
+        state = State(int(source_dict["state"]))
+        review = (
+            datetime.fromisoformat(source_dict["review"])
+            if source_dict["review"]
+            else None
+        )
+
+        return Card(
+            due,
+            stability,
+            difficulty,
+            elapsed_days,
+            scheduled_days,
+            reps,
+            lapses,
+            state,
+            review,
+        )
+
+    def get_retrievability(self, now: Optional[datetime] = None) -> float:
+        """
+        Calculates the Card object's current retrievability for a given date and time.
+
+        Args:
+            now (datetime): The current date and time
+
+        Returns:
+            float: The retrievability of the Card object.
+        """
+        DECAY = -0.5
+        FACTOR = 0.9 ** (1 / DECAY) - 1
 
         if now is None:
             now = datetime.now(timezone.utc)
 
-        updated_card, review_log = self.review_card(flashcard, rating, now)
-        updated_card.save_to_db()
-
-        user_performance.next_review = updated_card.due
-        user_performance.last_rating = rating
-        user_performance.save_to_db()
-
-    def review_card(self, flashcard, rating, now):
-        """
-        Reviews a flashcard, updates its state, difficulty, and stability,
-        and calculates the next review date.
-        """
-        card_copy = copy.deepcopy(flashcard)
-        if card_copy.state == State.New:
-            card_copy.elapsed_days = 0
+        if self.state in (State.Learning, State.Review, State.Relearning):
+            elapsed_days = max(0, (now - self.review).days)
+            return (1 + FACTOR * elapsed_days / self.stability) ** DECAY
         else:
-            card_copy.elapsed_days = (now - card_copy.last_review).days
+            return 0
 
-        card_copy.reps += 1
-        card_copy.last_review = now
 
-        # Stack-based state management
-        self.manage_state(card_copy, rating)
+@dataclass
+class SchedulingInfo:
+    """
+    Simple data class that bundles together an updated Card object and its corresponding ReviewLog object.
 
-        # Calculate next difficulty and stability
-        self.update_difficulty_and_stability(card_copy, rating)
+    This class is specifically used to provide an updated card and its review log after a card has been reviewed.
+    """
 
-        # Calculate next review interval and schedule date
-        card_copy.scheduled_days = self.next_interval(card_copy.stability)
-        card_copy.due = now + timedelta(days=card_copy.scheduled_days)
+    card: Card
+    review_log: ReviewLog
 
-        review_log = ReviewLog(
-            rating=rating,
-            scheduled_days=card_copy.scheduled_days,
-            elapsed_days=card_copy.elapsed_days,
-            review=now,
-            state=card_copy.state,
+
+class SchedulingCards:
+    """
+    Manages the scheduling of a Card object for each of the four potential ratings.
+
+    A SchedulingCards object is created from an existing card and creates four new potential cards which
+    are updated according to whether the card will be chosen to be reviewed as Again, Hard, Good or Easy.
+
+    Attributes:
+        again (Card): An updated Card object that was rated Again.
+        hard (Card): An updated Card object that was rated Hard.
+        good (Card): An updated Card object that was rated Good.
+        easy (Card): An updated Card object that was rated Easy.
+    """
+
+    def __init__(self, card: Card) -> None:
+        self.again = copy.deepcopy(card)
+        self.hard = copy.deepcopy(card)
+        self.good = copy.deepcopy(card)
+        self.easy = copy.deepcopy(card)
+
+    def update_state(self, state: State) -> None:
+        if state == State.New:
+            self.again.state = State.Learning
+            self.hard.state = State.Learning
+            self.good.state = State.Learning
+            self.easy.state = State.Review
+        elif state in (State.Learning, State.Relearning):
+            self.again.state = state
+            self.hard.state = state
+            self.good.state = State.Review
+            self.easy.state = State.Review
+        elif state == State.Review:
+            self.again.state = State.Relearning
+            self.hard.state = State.Review
+            self.good.state = State.Review
+            self.easy.state = State.Review
+            self.again.lapses += 1
+
+    def schedule(
+        self, now: datetime, hard_interval: int, good_interval: int, easy_interval: int
+    ) -> None:
+        self.again.scheduled_days = 0
+        self.hard.scheduled_days = hard_interval
+        self.good.scheduled_days = good_interval
+        self.easy.scheduled_days = easy_interval
+        self.again.due = now + timedelta(minutes=5)
+        self.hard.due = (
+            now + timedelta(days=hard_interval)
+            if hard_interval > 0
+            else now + timedelta(minutes=10)
         )
+        self.good.due = now + timedelta(days=good_interval)
+        self.easy.due = now + timedelta(days=easy_interval)
 
-        return card_copy, review_log
-
-    def manage_state(self, flashcard, rating):
-        """
-        Manages the state transitions for a flashcard using a stack-based approach.
-        """
-        if flashcard.state == State.New:
-            flashcard.state = State.Learning if rating != Rating.Easy else State.Review
-        elif flashcard.state == State.Learning:
-            if rating == Rating.Again:
-                flashcard.state = State.Relearning
-            else:
-                flashcard.state = State.Review
-        elif flashcard.state == State.Review:
-            if rating == Rating.Again:
-                flashcard.state = State.Relearning
-            else:
-                flashcard.state = State.Review
-
-    def update_difficulty_and_stability(self, flashcard, rating):
-        """
-        Updates the difficulty and stability of the card based on the rating.
-        """
-        if flashcard.state == State.New:
-            flashcard.difficulty = self.init_difficulty(rating)
-            flashcard.stability = self.init_stability(rating)
-        elif flashcard.state in [State.Learning, State.Relearning, State.Review]:
-            retrievability = self.forgetting_curve(
-                flashcard.elapsed_days, flashcard.stability
-            )
-            flashcard.difficulty = self.next_difficulty(flashcard.difficulty, rating)
-            if flashcard.state == State.Review:
-                flashcard.stability = self.next_recall_stability(
-                    flashcard.difficulty, flashcard.stability, retrievability, rating
-                )
-            else:
-                flashcard.stability = self.short_term_stability(
-                    flashcard.stability, rating
-                )
-
-    @lru_cache(maxsize=None)
-    def forgetting_curve(self, elapsed_days: int, stability: float) -> float:
-        """
-        Memoized function to calculate forgetting curve based on elapsed days and stability.
-        """
-        return (1 + self.FACTOR * elapsed_days / stability) ** self.DECAY
-
-    @lru_cache(maxsize=None)
-    def next_interval(self, stability: float) -> int:
-        """
-        Memoized function to calculate the next interval based on card stability.
-        """
-        new_interval = (
-            stability / self.FACTOR * (self.p.request_retention ** (1 / self.DECAY) - 1)
-        )
-        return min(max(round(new_interval), 1), self.p.maximum_interval)
-
-    def init_stability(self, rating: Rating) -> float:
-        """
-        Initializes the stability value based on the rating.
-        """
-        return max(self.p.w[rating - 1], 0.1)
-
-    def init_difficulty(self, rating: Rating) -> float:
-        """
-        Initializes the difficulty value based on the rating.
-        """
-        return min(max(self.p.w[4] - math.exp(self.p.w[5] * (rating - 1)) + 1, 1), 10)
-
-    def next_difficulty(self, current_difficulty: float, rating: Rating) -> float:
-        """
-        Calculates the next difficulty level based on the rating.
-        """
-        next_d = current_difficulty - self.p.w[6] * (rating - 3)
-        return min(
-            max(self.mean_reversion(self.init_difficulty(Rating.Easy), next_d), 1), 10
-        )
-
-    def short_term_stability(self, stability: float, rating: Rating) -> float:
-        """
-        Calculates short-term stability during Learning or Relearning phases.
-        """
-        return stability * math.exp(self.p.w[17] * (rating - 3 + self.p.w[18]))
-
-    def mean_reversion(self, init: float, current: float) -> float:
-        """
-        Mean reversion calculation to stabilize changes in difficulty.
-        """
-        return self.p.w[7] * init + (1 - self.p.w[7]) * current
-
-    def next_recall_stability(
-        self, difficulty: float, stability: float, retrievability: float, rating: Rating
-    ) -> float:
-        """
-        Calculates the next recall stability based on rating and retrievability.
-        """
-        hard_penalty = self.p.w[15] if rating == Rating.Hard else 1
-        easy_bonus = self.p.w[16] if rating == Rating.Easy else 1
-        return stability * (
-            1
-            + math.exp(self.p.w[8])
-            * (11 - difficulty)
-            * math.pow(stability, -self.p.w[9])
-            * (math.exp((1 - retrievability) * self.p.w[10]) - 1)
-            * hard_penalty
-            * easy_bonus
-        )
-
-    def next_forget_stability(
-        self, difficulty: float, stability: float, retrievability: float
-    ) -> float:
-        """
-        Calculates the next stability for a forgotten card.
-        """
-        return (
-            self.p.w[11]
-            * math.pow(difficulty, -self.p.w[12])
-            * (math.pow(stability + 1, self.p.w[13]) - 1)
-            * math.exp((1 - retrievability) * self.p.w[14])
-        )
+    def record_log(self, card: Card, now: datetime) -> dict[Rating, SchedulingInfo]:
+        return {
+            Rating.Again: SchedulingInfo(
+                self.again,
+                ReviewLog(
+                    Rating.Again,
+                    self.again.scheduled_days,
+                    card.elapsed_days,
+                    now,
+                    card.state,
+                ),
+            ),
+            Rating.Hard: SchedulingInfo(
+                self.hard,
+                ReviewLog(
+                    Rating.Hard,
+                    self.hard.scheduled_days,
+                    card.elapsed_days,
+                    now,
+                    card.state,
+                ),
+            ),
+            Rating.Good: SchedulingInfo(
+                self.good,
+                ReviewLog(
+                    Rating.Good,
+                    self.good.scheduled_days,
+                    card.elapsed_days,
+                    now,
+                    card.state,
+                ),
+            ),
+            Rating.Easy: SchedulingInfo(
+                self.easy,
+                ReviewLog(
+                    Rating.Easy,
+                    self.easy.scheduled_days,
+                    card.elapsed_days,
+                    now,
+                    card.state,
+                ),
+            ),
+        }
 
 
 class Parameters:
     """
-    Parameters for the FSRS algorithm, including model weights, retention, and interval limits.
+    The parameters used to configure the FSRS scheduler.
+
+    Attributes:
+        request_retention (float): The desired retention of the scheduler. Corresponds to the maximum retrievability a Card object can have before it is due.
+        maximum_interval (int): The maximum number of days into the future a Card object can be scheduled for next review.
+        w (tuple[float, ...]): The 19 model weights of the FSRS scheduler.
     """
 
-    def __init__(self, w=None, request_retention=0.9, maximum_interval=36500):
+    def __init__(
+        self,
+        w: Optional[tuple[float, ...]] = None,
+        request_retention: Optional[float] = None,
+        maximum_interval: Optional[int] = None,
+    ) -> None:
         self.w = (
             w
-            if w
+            if w is not None
             else (
                 0.4072,
                 1.1829,
@@ -987,33 +607,135 @@ class Parameters:
                 0.6567,
             )
         )
-        self.request_retention = request_retention
-        self.maximum_interval = maximum_interval
+        self.request_retention = (
+            request_retention if request_retention is not None else 0.9
+        )
+        self.maximum_interval = (
+            maximum_interval if maximum_interval is not None else 36500
+        ) 
+
+My DB Operations file:
+import sqlite3
+from Flashcard_System.flashcard_models import Card, ReviewLog
 
 
-class ReviewLog:
-    """
-    Logs review data for a card, including rating, scheduled days, and review time.
-    """
+class DatabaseOperations:
+    def __init__(self, db_path: str = "../physics_revision_app.db"):
+        self.db_path = db_path
 
-    def __init__(self, rating, scheduled_days, elapsed_days, review, state):
-        self.rating = rating
-        self.scheduled_days = scheduled_days
-        self.elapsed_days = elapsed_days
-        self.review = review
-        self.state = state
+    def get_flashcard(self, card_id: int) -> Card | None:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT card_id, set_name, front, back
+                    FROM Flashcards
+                    WHERE card_id = ?
+                    """,
+                    (card_id,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return Card(
+                        card_id=row[0], set_name=row[1], front=row[2], back=row[3]
+                    )
+                print(f"Flashcard with ID {card_id} not found.")
+                return None
+        except sqlite3.Error as e:
+            print(f"SQLite error: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+        return None
 
-    def to_dict(self):
-        """
-        Returns a dictionary representation of the review log.
-        """
-        return {
-            "rating": self.rating.value,
-            "scheduled_days": self.scheduled_days,
-            "elapsed_days": self.elapsed_days,
-            "review": self.review.isoformat(),
-            "state": self.state.value,
-        }
+    def save_review_log(
+        self, user_id: int, card_id: int, review_log: ReviewLog
+    ) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO UserPerformance (
+                    user_id, card_id, stability, difficulty, rating, scheduled_days, elapsed_days, review, state, reps, lapses
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                ON CONFLICT(user_id, card_id) DO UPDATE SET
+                    stability=excluded.stability,
+                    difficulty=excluded.difficulty,
+                    rating=excluded.rating,
+                    scheduled_days=excluded.scheduled_days,
+                    elapsed_days=excluded.elapsed_days,
+                    review=excluded.review,
+                    state=excluded.state,
+                    reps=excluded.reps,
+                    lapses=excluded.lapses
+                """,
+                (
+                    user_id,
+                    card_id,
+                    review_log.stability,
+                    review_log.difficulty,
+                    review_log.rating.value,
+                    review_log.scheduled_days,
+                    review_log.elapsed_days,
+                    review_log.review.isoformat(),
+                    review_log.state.value,
+                    review_log.reps,
+                    review_log.lapses,
+                ),
+            )
+            conn.commit()
+
+My Test File:
+from Flashcard_System.flashcard_db_operations import DatabaseOperations
+from Flashcard_System.flashcard_models import Card, Rating, ReviewLog
+from Flashcard_System.b import FSRS
 
 
-Can you incorporate whatever functionality is missing including the init_ds, next_ds, and other functionality that are not present in the code I provided.
+def get_user_rating() -> int:
+    while True:
+        rating = input(
+            "Rate the flashcard (1 = Again, 2 = Hard, 3 = Good, 4 = Easy): "
+        ).strip()
+        if rating in {"1", "2", "3", "4"}:
+            return int(rating)
+        print("Invalid rating. Please enter a number between 1 and 4.")
+
+
+def review_flashcard(card: Card, fsrs: FSRS, user_id: int):
+    print(f"Question: {card.front}")
+    input("Press Enter to flip the card...")
+    print(f"Answer: {card.back}")
+
+    rating = get_user_rating()
+    updated_card, review_log = fsrs.review_card(card, Rating(rating))
+
+    log_performance(user_id, updated_card, review_log)
+    return updated_card
+
+
+def log_performance(user_id: int, card: Card, review_log: ReviewLog):
+    db_operations = DatabaseOperations("../physics_revision_app.db")
+    db_operations.save_review_log(user_id, card.card_id, review_log)
+
+
+def main():
+    user_id = 1  # Assuming a single user for this test scenario
+    db_operations = DatabaseOperations("../physics_revision_app.db")
+    fsrs = FSRS(db_operations)
+
+    # Loop through flashcards until you hit the limit (10 cards in this demo)
+    for card_id in range(1, 11):
+        card = db_operations.get_flashcard(card_id)
+
+        if card is None:
+            print(f"Flashcard ID {card_id} not found.")
+            continue
+
+        review_flashcard(card, fsrs, user_id)
+        input("Press Enter to review the next flashcard...")
+
+
+if __name__ == "__main__":
+    main()
