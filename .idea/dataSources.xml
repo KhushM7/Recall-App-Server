@@ -16,19 +16,13 @@
         </library>
       </libraries>
     </data-source>
-    <data-source source="LOCAL" name="physics_revision_app" uuid="7efe9413-4ca6-4c24-9f87-87b32ecf22df">
+    <data-source source="LOCAL" name="physics_revision_app" uuid="31d05935-f0c7-4f82-a19a-974606d49c0f">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:C:\Users\khush\PycharmProjects\Physics-App-Server\physics_revision_app.db</jdbc-url>
+      <jdbc-url>jdbc:sqlite:C:\Users\Khush Mehta\PycharmProjects\Physics-App-Server\physics_revision_app.db</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
       <libraries>
-        <library>
-          <url>file://$APPLICATION_CONFIG_DIR$/jdbc-drivers/Xerial SQLiteJDBC/3.45.1/org/xerial/sqlite-jdbc/3.45.1.0/sqlite-jdbc-3.45.1.0.jar</url>
-        </library>
-        <library>
-          <url>file://$APPLICATION_CONFIG_DIR$/jdbc-drivers/Xerial SQLiteJDBC/3.45.1/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.jar</url>
-        </library>
         <library>
           <url>file://$APPLICATION_CONFIG_DIR$/jdbc-drivers/Xerial SQLiteJDBC/3.45.1/org/xerial/sqlite-jdbc/3.45.1.0/sqlite-jdbc-3.45.1.0.jar</url>
         </library>
