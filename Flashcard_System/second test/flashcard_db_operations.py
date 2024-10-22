@@ -13,7 +13,7 @@ class DatabaseOperations:
                 cursor.execute(
                     """
                     SELECT card_id, set_name, front, back
-                    FROM Flashcards
+                    FROM Flashcards1
                     WHERE card_id = ?
                     """,
                     (card_id,),

@@ -17,6 +17,10 @@ class UserAuthentication:
                 "INSERT INTO Users (email, username, password) VALUES (?, ?, ?);",
                 (email, username, hashed_password),
             )
+            cursor.execute(
+                "INSERT INTO UserSettings (user_id) VALUES ((SELECT user_id FROM Users WHERE email = ?));",
+                (email,),
+            )
             conn.commit()
         except sqlite3.IntegrityError:
             raise ValueError("Username or email already exists!")

@@ -18,7 +18,7 @@ from models import (
     Parameters,
 )
 import math
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time
 from typing import Optional
 import copy
 
@@ -74,10 +74,24 @@ class FSRS:
         Raises:
             ValueError: If the `now` argument is not timezone-aware and set to UTC.
         """
+        if now is None:
+            # now = datetime.now(timezone.utc)
+            # Simulate the current time for testing purposes
+            if hasattr(card, "due"):
+                now = card.due
         scheduling_cards = self.repeat(card, now)
 
         card = scheduling_cards[rating].card
         review_log = scheduling_cards[rating].review_log
+        # Set the next review's due time to midnight
+        next_review_day = card.due.date()  # Get just the date portion
+        card.due = datetime.combine(next_review_day, time(0, 0, 0), tzinfo=timezone.utc)
+        if card.due.date() == now.date():
+            # If the next review is still scheduled for today, push it to the next day
+            next_review_day = now.date() + timedelta(days=1)
+            card.due = datetime.combine(
+                next_review_day, time(0, 0, 0), tzinfo=timezone.utc
+            )
 
         # print(
         #     f"""
@@ -117,13 +131,16 @@ class FSRS:
             if hasattr(card, "due"):
                 now = card.due
 
-        if (now.tzinfo is None) or (now.tzinfo != timezone.utc):
-            raise ValueError("datetime must be timezone-aware and set to UTC")
-
         card = copy.deepcopy(card)
         if card.state == State.New:
             card.elapsed_days = 0
         else:
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
+            if card.last_review.tzinfo is None:
+                card.last_review = card.last_review.replace(tzinfo=timezone.utc)
+            print("Now:", now)
+            print("Last Review:", card.last_review)
             card.elapsed_days = (now - card.last_review).days
         card.last_review = now
         card.reps += 1
@@ -223,7 +240,9 @@ class FSRS:
         new_interval = (
             s / self.FACTOR * (self.p.request_retention ** (1 / self.DECAY) - 1)
         )
-        return min(max(round(new_interval), 1), self.p.maximum_interval)
+        print(min(max(math.ceil(new_interval), 1), self.p.maximum_interval))
+        # Use math.ceil to ensure we always round up to the nearest full day
+        return min(max(math.ceil(new_interval), 1), self.p.maximum_interval)
 
     def next_difficulty(self, d: float, r: Rating) -> float:
         next_d = d - self.p.w[6] * (r - 3)
