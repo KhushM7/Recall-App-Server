@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 
@@ -9,8 +9,11 @@ class DatabaseOperations:
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row  # To fetch rows as dictionaries
 
-    def fetch_due_cards(self, user_id: int, limit: int) -> List[Dict]:
-        """Fetch due cards, prioritizing cards that were carried over (priority = 1)."""
+    def fetch_due_cards(self, user_id: int, review_date: str, limit: int) -> List[Dict]:
+        """
+        Fetch due cards, prioritizing cards that were carried over (priority = 1).
+        This function now accepts the review date to fetch cards due on or before that date.
+        """
         cursor = self.conn.execute(
             """
             SELECT f.card_id, f.set_name, f.front, f.back
@@ -19,8 +22,8 @@ class DatabaseOperations:
             WHERE u.user_id = ? AND u.next_review_date <= ?
             ORDER BY u.priority DESC, u.next_review_date ASC
             LIMIT ?
-        """,
-            (user_id, datetime.now().date().isoformat(), limit),
+            """,
+            (user_id, review_date, limit),
         )
 
         return [dict(row) for row in cursor.fetchall()]
@@ -180,15 +183,22 @@ class DatabaseOperations:
 
     def mark_cards_as_priority(self, user_id: int, review_date: str) -> None:
         """
-        Mark unreviewed cards as priority if they are carried over to the next day.
+        Mark unreviewed cards as priority if they are carried over to the next day,
+        and update their next_review_date to be the next day.
         """
+        next_day = (
+            (datetime.strptime(review_date, "%Y-%m-%d") + timedelta(days=1))
+            .date()
+            .isoformat()
+        )
+
         self.conn.execute(
             """
             UPDATE UserPerformance
-            SET priority = 1
+            SET priority = 1, next_review_date = ?
             WHERE user_id = ? AND next_review_date <= ? AND priority = 0
         """,
-            (user_id, review_date),
+            (next_day, user_id, review_date),
         )
 
         self.conn.commit()

@@ -107,10 +107,8 @@ def review_flashcards(user_id: int, review_date: datetime):
     # Step 4: Mark any unreviewed cards from previous days as priority
     db_ops.mark_cards_as_priority(user_id, today)
 
-    # Step 4: Fetch due flashcards, limiting to the remaining reviews allowed
-    flashcards = db_ops.fetch_flashcards_due(
-        user_id, review_date, limit=remaining_reviews
-    )
+    # Step 5: Fetch due flashcards, limiting to the remaining reviews allowed
+    flashcards = db_ops.fetch_due_cards(user_id, today, limit=remaining_reviews)
 
     if not flashcards:
         print("No flashcards found for this date!")
