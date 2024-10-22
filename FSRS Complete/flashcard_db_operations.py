@@ -63,7 +63,7 @@ class DatabaseOperations:
             """
                 INSERT INTO UserPerformance (user_id, card_id, stability, difficulty, rating, 
                                              scheduled_days, elapsed_days, review_time, next_review_date, state, reps, lapses)
-                VALUES (?, ?, 0, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 0)
+                VALUES (?, ?, 0, 0, 0, 0, 0, CURRENT_TIMESTAMP, DATE(CURRENT_TIMESTAMP), 0, 0, 0)
             """,
             (user_id, next_card_id),
         )
@@ -99,6 +99,27 @@ class DatabaseOperations:
             return result["reviewed_cards_count"]
         else:
             return 0  # No reviews yet today
+
+    def fetch_reviewed_same_day(self, user_id: int, review_date: str) -> list[tuple]:
+        """
+        Fetch the stability and difficulty of cards reviewed by the user on the same day.
+        Args:
+            user_id: The ID of the user.
+            review_date: The date on which the review is taking place (YYYY-MM-DD format).
+
+        Returns:
+            A list of tuples with (stability, difficulty) of cards reviewed on that day.
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT stability, difficulty
+            FROM UserPerformance
+            WHERE user_id = ? AND DATE(review_time) = ?
+        """,
+            (user_id, review_date),
+        )
+
+        return [(row["stability"], row["difficulty"]) for row in cursor.fetchall()]
 
     def fetch_user_performance(self, user_id: int, card_id: int) -> Optional[Dict]:
         """Fetch the performance data of a user for a specific card."""

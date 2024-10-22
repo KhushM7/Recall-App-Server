@@ -1,3 +1,5 @@
+import random
+
 from fsrs import FSRS, Card, Rating, State
 from models import ReviewLog
 from flashcard_db_operations import DatabaseOperations
@@ -99,10 +101,7 @@ def review_flashcards(user_id: int, review_date: datetime):
 
     # Step 3: Calculate remaining reviews allowed today
     remaining_reviews = max(0, daily_limit - reviewed_today)
-
-    if remaining_reviews <= 0:
-        print("You've reached your daily review limit. Come back tomorrow!")
-        return
+    remaining_reviews = 100
 
     # Step 4: Mark any unreviewed cards from previous days as priority and push next review to the next day
     db_ops.mark_cards_as_priority(user_id, today)
@@ -115,6 +114,7 @@ def review_flashcards(user_id: int, review_date: datetime):
         return
 
     for card_data in flashcards:
+        reviewed_same_day = db_ops.fetch_reviewed_same_day(user_id, today)
         print(f"\nFlashcard: {card_data['front']} -> {card_data['back']}")
 
         # Load the current state of the card from the database
@@ -126,17 +126,30 @@ def review_flashcards(user_id: int, review_date: datetime):
         # Review the card using FSRS
         card, review_log = fsrs_scheduler.review_card(card, rating)
 
-        # Store the updated card state in the UserPerformance table
+        # Step 7: Compare the current card's stability and difficulty with those reviewed earlier today
+        card_stability_difficulty = (card.stability, card.difficulty)
+        print(
+            f"Current card stability: {card.stability}, difficulty: {card.difficulty}"
+        )
+        if card_stability_difficulty in reviewed_same_day:
+            print("HI IM HERE")
+            # If the current card's stability and difficulty match a previous card reviewed today, apply a random delay
+            delay = random.randint(0, 1)  # Random delay of 0 or 1 day
+            card.due = card.due + timedelta(days=delay)
+            card.scheduled_days += delay
+            print(f"Random delay of {delay} day(s) applied to card {card.card_id}")
+
+        # Step 8: Store the updated card state in the UserPerformance table
         store_card_state(card, rating, review_log, user_id)
 
-        # Step 6: After each review, increment the count of reviewed cards today
+        # Step 9: After each review, increment the count of reviewed cards today
         db_ops.increment_reviewed_card_count(user_id, today)
 
     print(
         "\nBatch review completed. You can now check your UserPerformance table for analysis."
     )
 
-    # Step 7: Mark any remaining unreviewed cards due today as priority and push next review to tomorrow
+    # Step 10: Mark any remaining unreviewed cards due today as priority and push next review to tomorrow
     db_ops.mark_today_unreviewed_as_priority(user_id, today)
 
 
