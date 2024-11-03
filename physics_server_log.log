@@ -1,0 +1,188 @@
+2024-11-02 23:44:57,787 - root - INFO - FSRS scheduler initialized with parameters.
+2024-11-02 23:44:57,787 - root - INFO - Initializing DatabaseService with db_path: ../physics_revision_app.db
+2024-11-02 23:45:11,116 - root - INFO - Fetching daily review limit for user_id: 1
+2024-11-02 23:45:11,116 - root - INFO - Executing query (fetch one): 
+                SELECT daily_review_limit 
+                FROM UserSettings 
+                WHERE user_id = ?
+             with params: (1,)
+2024-11-02 23:45:11,117 - root - INFO - Fetched row: {'daily_review_limit': 10}
+2024-11-02 23:45:11,117 - root - INFO - Fetching reviewed cards count for user_id: 1, review_date: 2024-11-08
+2024-11-02 23:45:11,117 - root - INFO - Executing query (fetch one): 
+                SELECT reviewed_cards_count 
+                FROM DailyReviewLog 
+                WHERE user_id = ? AND review_date = ?
+             with params: (1, '2024-11-08')
+2024-11-02 23:45:11,117 - root - INFO - No rows found
+2024-11-02 23:45:11,117 - root - INFO - Marking unreviewed cards as priority for user_id: 1, review_date: 2024-11-08
+2024-11-02 23:45:11,117 - root - INFO - Incrementing priority for unreviewed cards before 2024-11-08 for user_id: 1
+2024-11-02 23:45:11,117 - root - INFO - Updating with query: 
+                UPDATE UserPerformance
+                SET priority = priority + 1, next_review_date = ?
+                WHERE user_id = ? AND next_review_date < ? AND priority >= 0
+             and params: ('2024-11-09', 1, '2024-11-08')
+2024-11-02 23:45:11,117 - root - INFO - Update operation successful
+2024-11-02 23:45:11,117 - root - INFO - Fetching due cards for user_id: 1, review_date: 2024-11-08, limit: 10
+2024-11-02 23:45:11,117 - root - INFO - Executing query: 
+                SELECT f.card_id, f.set_name, f.front, f.back
+                FROM Flashcards f
+                JOIN UserPerformance u ON f.user_id = u.user_id AND f.card_id = u.card_id
+                WHERE u.user_id = ? AND u.next_review_date <= ?
+                ORDER BY u.priority DESC, u.next_review_date ASC
+                LIMIT ?
+             with params: (1, '2024-11-08', 10)
+2024-11-02 23:45:11,117 - root - INFO - Fetched 3 rows
+2024-11-02 23:45:11,118 - root - INFO - Executing query: 
+                        SELECT stability, difficulty
+                        FROM UserPerformance
+                        WHERE user_id = ? AND DATE(review_time) = ?
+                     with params: (1, '2024-11-08')
+2024-11-02 23:45:11,118 - root - INFO - Fetched 0 rows
+2024-11-02 23:45:11,118 - root - INFO - Fetching user performance for user_id: 1, card_id: 22
+2024-11-02 23:45:11,118 - root - INFO - Executing query (fetch one): 
+            SELECT * FROM UserPerformance
+            WHERE user_id = ? AND card_id = ?
+         with params: (1, 22)
+2024-11-02 23:45:11,119 - root - INFO - Fetched row: {'user_id': 1, 'card_id': 22, 'stability': 2.0664007435024083, 'difficulty': 9.148363938204712, 'rating': 3, 'scheduled_days': 3, 'elapsed_days': 1, 'review_time': '2024-11-04T00:00:00', 'next_review_date': '2024-11-08', 'state': 2, 'reps': 6, 'lapses': 1, 'priority': 1}
+2024-11-02 23:45:11,119 - root - INFO - Initialized Card with ID 22.
+2024-11-02 23:45:11,119 - root - INFO - Loaded card state: Card ID 22, State 2, Reps 6, Lapses 1
+2024-11-02 23:45:22,504 - root - INFO - Reviewing card with ID 22 at 2024-11-08 00:00:00, rating: Good
+2024-11-02 23:45:22,504 - root - INFO - Card 22 updated with 7 repetitions, elapsed days: 4
+2024-11-02 23:45:22,504 - root - INFO - SchedulingCards initialized for Card 22.
+2024-11-02 23:45:22,504 - root - INFO - Updating state for SchedulingCards. Original state: 2.
+2024-11-02 23:45:22,505 - root - INFO - State updated for SchedulingCards: Again=3, Hard=2, Good=2, Easy=2.
+2024-11-02 23:45:22,505 - root - INFO - Scheduling complete for Card. Hard due in 3 days, Good due in 6 days, Easy due in 13 days.
+2024-11-02 23:45:22,505 - root - INFO - Scheduling intervals updated for card 22
+2024-11-02 23:45:22,505 - root - INFO - Scheduling info generated for card 22 in state Review
+2024-11-02 23:45:22,505 - root - INFO - ReviewLog created with rating 1.
+2024-11-02 23:45:22,505 - root - INFO - ReviewLog created with rating 2.
+2024-11-02 23:45:22,505 - root - INFO - ReviewLog created with rating 3.
+2024-11-02 23:45:22,505 - root - INFO - ReviewLog created with rating 4.
+2024-11-02 23:45:22,505 - root - INFO - Next review for card 22 scheduled for 2024-11-14 00:00:00+00:00
+2024-11-02 23:45:22,505 - root - INFO - Card 22 reviewed successfully, next due date: 2024-11-14 00:00:00+00:00
+2024-11-02 23:45:22,505 - root - INFO - Current card stability: 5.560191387152438, difficulty: 9.011111064036887
+2024-11-02 23:45:22,505 - root - INFO - Storing card state: Card ID 22, State 2, Reps 7, Lapses 1
+2024-11-02 23:45:22,505 - root - INFO - Storing review result for user_id: 1, card_id: 22
+2024-11-02 23:45:22,505 - root - INFO - Inserting with query: 
+                INSERT OR REPLACE INTO UserPerformance (
+                    user_id, card_id, stability, difficulty, rating, scheduled_days, 
+                    elapsed_days, review_time, next_review_date, state, reps, lapses
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             and params: (1, 22, 5.560191387152438, 9.011111064036887, 3, 6, 4, '2024-11-08T00:00:00', '2024-11-14', 2, 7, 1)
+2024-11-02 23:45:22,509 - root - INFO - Insert operation successful
+2024-11-02 23:45:22,509 - root - INFO - Incrementing reviewed card count for user_id: 1, review_date: 2024-11-08
+2024-11-02 23:45:22,509 - root - INFO - Inserting with query: 
+                INSERT INTO DailyReviewLog (user_id, review_date, reviewed_cards_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(user_id, review_date)
+                DO UPDATE SET reviewed_cards_count = reviewed_cards_count + 1;
+             and params: (1, '2024-11-08')
+2024-11-02 23:45:22,513 - root - INFO - Insert operation successful
+2024-11-02 23:45:22,513 - root - INFO - Executing query: 
+                        SELECT stability, difficulty
+                        FROM UserPerformance
+                        WHERE user_id = ? AND DATE(review_time) = ?
+                     with params: (1, '2024-11-08')
+2024-11-02 23:45:22,513 - root - INFO - Fetched 1 rows
+2024-11-02 23:45:22,513 - root - INFO - Fetching user performance for user_id: 1, card_id: 8
+2024-11-02 23:45:22,513 - root - INFO - Executing query (fetch one): 
+            SELECT * FROM UserPerformance
+            WHERE user_id = ? AND card_id = ?
+         with params: (1, 8)
+2024-11-02 23:45:22,513 - root - INFO - Fetched row: {'user_id': 1, 'card_id': 8, 'stability': 10.932991854763959, 'difficulty': 5.343514630847566, 'rating': 3, 'scheduled_days': 11, 'elapsed_days': 3, 'review_time': '2024-10-28T00:00:00+00:00', 'next_review_date': '2024-11-08', 'state': 2, 'reps': 3, 'lapses': 0, 'priority': 0}
+2024-11-02 23:45:22,513 - root - INFO - Initialized Card with ID 8.
+2024-11-02 23:45:22,513 - root - INFO - Loaded card state: Card ID 8, State 2, Reps 3, Lapses 0
+2024-11-02 23:45:24,768 - root - INFO - Reviewing card with ID 8 at 2024-11-08 00:00:00, rating: Good
+2024-11-02 23:45:24,768 - root - INFO - Card 8 updated with 4 repetitions, elapsed days: 11
+2024-11-02 23:45:24,768 - root - INFO - SchedulingCards initialized for Card 8.
+2024-11-02 23:45:24,768 - root - INFO - Updating state for SchedulingCards. Original state: 2.
+2024-11-02 23:45:24,768 - root - INFO - State updated for SchedulingCards: Again=3, Hard=2, Good=2, Easy=2.
+2024-11-02 23:45:24,768 - root - INFO - Scheduling complete for Card. Hard due in 17 days, Good due in 36 days, Easy due in 84 days.
+2024-11-02 23:45:24,769 - root - INFO - Scheduling intervals updated for card 8
+2024-11-02 23:45:24,769 - root - INFO - Scheduling info generated for card 8 in state Review
+2024-11-02 23:45:24,769 - root - INFO - ReviewLog created with rating 1.
+2024-11-02 23:45:24,769 - root - INFO - ReviewLog created with rating 2.
+2024-11-02 23:45:24,769 - root - INFO - ReviewLog created with rating 3.
+2024-11-02 23:45:24,769 - root - INFO - ReviewLog created with rating 4.
+2024-11-02 23:45:24,769 - root - INFO - Next review for card 8 scheduled for 2024-12-14 00:00:00+00:00
+2024-11-02 23:45:24,769 - root - INFO - Card 8 reviewed successfully, next due date: 2024-12-14 00:00:00+00:00
+2024-11-02 23:45:24,769 - root - INFO - Current card stability: 35.66282864902787, difficulty: 5.295295230471899
+2024-11-02 23:45:24,769 - root - INFO - Storing card state: Card ID 8, State 2, Reps 4, Lapses 0
+2024-11-02 23:45:24,769 - root - INFO - Storing review result for user_id: 1, card_id: 8
+2024-11-02 23:45:24,769 - root - INFO - Inserting with query: 
+                INSERT OR REPLACE INTO UserPerformance (
+                    user_id, card_id, stability, difficulty, rating, scheduled_days, 
+                    elapsed_days, review_time, next_review_date, state, reps, lapses
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             and params: (1, 8, 35.66282864902787, 5.295295230471899, 3, 36, 11, '2024-11-08T00:00:00', '2024-12-14', 2, 4, 0)
+2024-11-02 23:45:24,773 - root - INFO - Insert operation successful
+2024-11-02 23:45:24,773 - root - INFO - Incrementing reviewed card count for user_id: 1, review_date: 2024-11-08
+2024-11-02 23:45:24,773 - root - INFO - Inserting with query: 
+                INSERT INTO DailyReviewLog (user_id, review_date, reviewed_cards_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(user_id, review_date)
+                DO UPDATE SET reviewed_cards_count = reviewed_cards_count + 1;
+             and params: (1, '2024-11-08')
+2024-11-02 23:45:24,779 - root - INFO - Insert operation successful
+2024-11-02 23:45:24,779 - root - INFO - Executing query: 
+                        SELECT stability, difficulty
+                        FROM UserPerformance
+                        WHERE user_id = ? AND DATE(review_time) = ?
+                     with params: (1, '2024-11-08')
+2024-11-02 23:45:24,780 - root - INFO - Fetched 2 rows
+2024-11-02 23:45:24,780 - root - INFO - Fetching user performance for user_id: 1, card_id: 10
+2024-11-02 23:45:24,780 - root - INFO - Executing query (fetch one): 
+            SELECT * FROM UserPerformance
+            WHERE user_id = ? AND card_id = ?
+         with params: (1, 10)
+2024-11-02 23:45:24,780 - root - INFO - Fetched row: {'user_id': 1, 'card_id': 10, 'stability': 10.932991854763959, 'difficulty': 5.343514630847566, 'rating': 3, 'scheduled_days': 11, 'elapsed_days': 3, 'review_time': '2024-10-28T00:00:00+00:00', 'next_review_date': '2024-11-08', 'state': 2, 'reps': 3, 'lapses': 0, 'priority': 0}
+2024-11-02 23:45:24,780 - root - INFO - Initialized Card with ID 10.
+2024-11-02 23:45:24,780 - root - INFO - Loaded card state: Card ID 10, State 2, Reps 3, Lapses 0
+2024-11-02 23:45:26,608 - root - INFO - Reviewing card with ID 10 at 2024-11-08 00:00:00, rating: Good
+2024-11-02 23:45:26,608 - root - INFO - Card 10 updated with 4 repetitions, elapsed days: 11
+2024-11-02 23:45:26,608 - root - INFO - SchedulingCards initialized for Card 10.
+2024-11-02 23:45:26,608 - root - INFO - Updating state for SchedulingCards. Original state: 2.
+2024-11-02 23:45:26,608 - root - INFO - State updated for SchedulingCards: Again=3, Hard=2, Good=2, Easy=2.
+2024-11-02 23:45:26,608 - root - INFO - Scheduling complete for Card. Hard due in 17 days, Good due in 36 days, Easy due in 84 days.
+2024-11-02 23:45:26,608 - root - INFO - Scheduling intervals updated for card 10
+2024-11-02 23:45:26,608 - root - INFO - Scheduling info generated for card 10 in state Review
+2024-11-02 23:45:26,608 - root - INFO - ReviewLog created with rating 1.
+2024-11-02 23:45:26,608 - root - INFO - ReviewLog created with rating 2.
+2024-11-02 23:45:26,609 - root - INFO - ReviewLog created with rating 3.
+2024-11-02 23:45:26,609 - root - INFO - ReviewLog created with rating 4.
+2024-11-02 23:45:26,609 - root - INFO - Next review for card 10 scheduled for 2024-12-14 00:00:00+00:00
+2024-11-02 23:45:26,609 - root - INFO - Card 10 reviewed successfully, next due date: 2024-12-14 00:00:00+00:00
+2024-11-02 23:45:26,609 - root - INFO - Current card stability: 35.66282864902787, difficulty: 5.295295230471899
+2024-11-02 23:45:26,609 - root - INFO - Random delay of 0 day(s) applied to card 10
+2024-11-02 23:45:26,609 - root - INFO - Storing card state: Card ID 10, State 2, Reps 4, Lapses 0
+2024-11-02 23:45:26,609 - root - INFO - Storing review result for user_id: 1, card_id: 10
+2024-11-02 23:45:26,609 - root - INFO - Inserting with query: 
+                INSERT OR REPLACE INTO UserPerformance (
+                    user_id, card_id, stability, difficulty, rating, scheduled_days, 
+                    elapsed_days, review_time, next_review_date, state, reps, lapses
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             and params: (1, 10, 35.66282864902787, 5.295295230471899, 3, 36, 11, '2024-11-08T00:00:00', '2024-12-14', 2, 4, 0)
+2024-11-02 23:45:26,612 - root - INFO - Insert operation successful
+2024-11-02 23:45:26,612 - root - INFO - Incrementing reviewed card count for user_id: 1, review_date: 2024-11-08
+2024-11-02 23:45:26,612 - root - INFO - Inserting with query: 
+                INSERT INTO DailyReviewLog (user_id, review_date, reviewed_cards_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(user_id, review_date)
+                DO UPDATE SET reviewed_cards_count = reviewed_cards_count + 1;
+             and params: (1, '2024-11-08')
+2024-11-02 23:45:26,615 - root - INFO - Insert operation successful
+2024-11-02 23:45:26,615 - root - INFO - 
+Batch review completed. You can now check your UserPerformance table for analysis.
+2024-11-02 23:45:26,615 - root - INFO - Marking unreviewed cards as priority for user_id: 1, review_date: 2024-11-08
+2024-11-02 23:45:26,615 - root - INFO - Marking today’s unreviewed cards as priority 1 for user_id: 1, review_date: 2024-11-08
+2024-11-02 23:45:26,615 - root - INFO - Updating with query: 
+                UPDATE UserPerformance
+                SET priority = 1, next_review_date = ?
+                WHERE user_id = ? AND next_review_date = ? AND priority = 0
+             and params: ('2024-11-09', 1, '2024-11-08')
+2024-11-02 23:45:26,616 - root - INFO - Update operation successful
+2024-11-02 23:45:31,263 - root - INFO - Exiting...
+2024-11-02 23:45:31,263 - root - INFO - Closing database connection
+2024-11-03 15:57:33,230 - root - INFO - FSRS scheduler initialized with parameters.
+2024-11-03 15:57:33,230 - root - INFO - Initializing DatabaseService with db_path: ../physics_revision_app.db
+2024-11-03 15:57:38,573 - root - INFO - Closing database connection

@@ -25,7 +25,7 @@ class DatabaseService:
             raise ValueError("Invalid database path provided.")
 
         try:
-            self.conn = sqlite3.connect(db_path)
+            self.conn = sqlite3.connect(db_path, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
         except sqlite3.Error as e:
             logging.error(f"Error connecting to the database at {db_path}: {e}")

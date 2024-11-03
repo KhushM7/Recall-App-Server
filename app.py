@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import Tuple
 from flask import Flask, request, jsonify, Response
 
+from Flashcard_System.fsrs_manager import FSRSManager
 from Reset_Password.email_service import send_verification_code, verify_otp
 from User_Authentication.user_auth import UserAuthentication
 
@@ -8,6 +10,7 @@ app = Flask(__name__)
 
 DATABASE_PATH = "physics_revision_app.db"
 auth = UserAuthentication(DATABASE_PATH)
+fsrs_manager = FSRSManager(DATABASE_PATH)
 
 
 @app.route("/send_verification_code", methods=["POST"])
@@ -86,6 +89,54 @@ def check_username_taken() -> Tuple[Response, int]:
     if auth.is_username_taken(username):
         return jsonify({"username_taken": True}), 200
     return jsonify({"username_taken": False}), 200
+
+
+@app.route("/get_user_id", methods=["GET"])
+def get_user_id() -> Tuple[Response, int]:
+    email_or_username = request.args.get("email_or_username")
+    if not email_or_username:
+        return jsonify({"error": "Email or username is required"}), 400
+
+    user_id = auth.get_user_id(email_or_username)
+    if user_id is not None:
+        return jsonify({"user_id": user_id}), 200
+    return jsonify({"error": "User not found"}), 404
+
+
+@app.route("/get_due_flashcards", methods=["GET"])
+def get_due_flashcards():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    try:
+        today = datetime(2024, 11, 17)
+        flashcards = fsrs_manager.fetch_due_flashcards(user_id, today)
+        return jsonify({"flashcards": flashcards}), 200
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/submit_rating", methods=["POST"])
+def submit_rating():
+    data = request.json
+    user_id = data.get("user_id")
+    card_id = data.get("card_id")
+    rating = data.get("rating")
+
+    if not all([user_id, card_id, rating]):
+        return jsonify({"error": "User ID, card ID, and rating are required"}), 400
+    today = datetime(2024, 11, 17)
+    success = fsrs_manager.process_rating(
+        user_id,
+        card_id,
+        rating,
+        today,
+    )
+    if success:
+        return jsonify({"success": True}), 200
+    else:
+        return jsonify({"error": "Failed to process rating"}), 500
 
 
 if __name__ == "__main__":

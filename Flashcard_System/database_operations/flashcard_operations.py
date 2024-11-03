@@ -112,3 +112,21 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
         except Exception as e:
             logging.error(f"Error fetching due cards for user {user_id}: {e}")
             raise
+
+    def fetch_card_by_id(self, card_id: int) -> Dict[str, Any]:
+        """Fetch a single flashcard's details by its card_id."""
+        logging.info(f"Fetching flashcard with card_id: {card_id}")
+
+        if not isinstance(card_id, int) or card_id <= 0:
+            raise ValueError(f"Invalid card_id: {card_id}")
+
+        try:
+            query = """
+                SELECT card_id, user_id, set_name, front, back
+                FROM Flashcards
+                WHERE card_id = ?
+            """
+            return self.fetch_one(query, (card_id,))
+        except Exception as e:
+            logging.error(f"Error fetching flashcard with card_id {card_id}: {e}")
+            raise

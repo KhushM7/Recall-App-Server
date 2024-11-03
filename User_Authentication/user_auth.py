@@ -91,3 +91,26 @@ class UserAuthentication:
             return False
         finally:
             conn.close()
+
+    def get_user_id(self, email_or_username: str) -> Optional[int]:
+        """
+        Retrieve the user ID based on the email or username.
+
+        :param email_or_username: The email or username of the user.
+        :return: User ID if found, otherwise None.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            if "@" in email_or_username:  # Check if the input is an email
+                cursor.execute(
+                    "SELECT user_id FROM Users WHERE email = ?", (email_or_username,)
+                )
+            else:
+                cursor.execute(
+                    "SELECT user_id FROM Users WHERE username = ?", (email_or_username,)
+                )
+            result = cursor.fetchone()
+            return result[0] if result else None
+        finally:
+            conn.close()
