@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Tuple
 from flask import Flask, request, jsonify, Response
 
+from Flashcard_System.database_operations.database_service import DatabaseService
 from Flashcard_System.fsrs_manager import FSRSManager
 from Reset_Password.email_service import send_verification_code, verify_otp
 from User_Authentication.user_auth import UserAuthentication
@@ -11,6 +12,8 @@ app = Flask(__name__)
 DATABASE_PATH = "physics_revision_app.db"
 auth = UserAuthentication(DATABASE_PATH)
 fsrs_manager = FSRSManager(DATABASE_PATH)
+db_service = DatabaseService("physics_revision_app.db")
+today = datetime(2024, 11, 26)
 
 
 @app.route("/send_verification_code", methods=["POST"])
@@ -102,6 +105,15 @@ def get_user_id() -> Tuple[Response, int]:
         return jsonify({"user_id": user_id}), 200
     return jsonify({"error": "User not found"}), 404
 
+@app.route("/get_username", methods=["GET"])
+def get_username() -> Tuple[Response, int]:
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    username = auth.get_username(user_id)
+    if username:
+        return jsonify({"username": username}), 200
+    return jsonify({"error": "User not found"}), 404
 
 @app.route("/get_due_flashcards", methods=["GET"])
 def get_due_flashcards():
@@ -109,11 +121,36 @@ def get_due_flashcards():
     if not user_id:
         return jsonify({"error": "User ID is required"}), 400
     try:
-        today = datetime(2024, 11, 17)
+        # today = datetime(2024, 11, 19)
         flashcards = fsrs_manager.fetch_due_flashcards(user_id, today)
         return jsonify({"flashcards": flashcards}), 200
     except Exception as e:
         print(f"An error occurred: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/get_flashcards_by_set", methods=["GET"])
+def get_flashcards_by_set():
+    user_id = request.args.get("user_id", type=int)
+    set_name = request.args.get("set_name", type=str)
+
+    if not all([user_id, set_name]):
+        return jsonify({"error": "User ID and set name are required"}), 400
+    try:
+        flashcards = db_service.flashcard_ops.fetch_flashcards_by_set(user_id, set_name)
+        print(jsonify({"flashcards": flashcards}))
+        return jsonify({"flashcards": flashcards}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/get_sets", methods=["GET"])
+def get_sets():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    try:
+        sets = db_service.flashcard_ops.fetch_sets(user_id)
+        return jsonify({"sets": sets}), 200
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
@@ -126,7 +163,7 @@ def submit_rating():
 
     if not all([user_id, card_id, rating]):
         return jsonify({"error": "User ID, card ID, and rating are required"}), 400
-    today = datetime(2024, 11, 17)
+    # today = datetime(2024, 11, 19)
     success = fsrs_manager.process_rating(
         user_id,
         card_id,
@@ -137,6 +174,26 @@ def submit_rating():
         return jsonify({"success": True}), 200
     else:
         return jsonify({"error": "Failed to process rating"}), 500
+
+@app.route("/create_flashcard", methods=["POST"])
+def create_flashcard():
+    data = request.json
+
+    user_id = data.get("user_id")
+    flashcard_data = data.get("flashcard_data", {})
+    set_name = flashcard_data.get("set_name")
+    front = flashcard_data.get("front")
+    back = flashcard_data.get("back")
+
+    if not all([user_id, set_name, front, back]):
+        return jsonify({"error": "User ID, set name, front, and back are required"}), 400
+
+    try:
+        # today = datetime(2024, 11, 26)
+        card_id = db_service.flashcard_ops.create_flashcard(user_id, flashcard_data, today)
+        return jsonify({"card_id": card_id}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

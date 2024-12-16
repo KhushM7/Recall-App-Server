@@ -1,4 +1,5 @@
 from abc import ABC
+from datetime import datetime
 from typing import List, Dict, Any, Tuple
 
 import logging
@@ -41,7 +42,7 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
             logging.error(f"Error updating data in FlashcardOperations: {e}")
             raise
 
-    def create_flashcard(self, user_id: int, flashcard_data: Dict[str, Any]) -> None:
+    def create_flashcard(self, user_id: int, flashcard_data: Dict[str, Any], next_review_date: datetime) -> None:
         """Create a new flashcard for a user."""
         logging.info(f"Creating flashcard for user_id: {user_id}")
 
@@ -83,6 +84,17 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
             self.insert(insert_flashcard_query, params)
         except Exception as e:
             logging.error(f"Error creating flashcard for user {user_id}: {e}")
+            raise
+
+        try:
+            insert_user_performance_query = """
+                INSERT INTO UserPerformance (user_id, card_id, review_time, next_review_date)
+                VALUES (?, ?, ?, ?)
+            """
+            params = (user_id, next_card_id, next_review_date.strftime('%Y-%m-%d'), next_review_date.strftime('%Y-%m-%d'))
+            self.insert(insert_user_performance_query, params)
+        except Exception as e:
+            logging.error(f"Error creating user performance record for user {user_id}: {e}")
             raise
 
     def fetch_due_cards(
@@ -129,4 +141,44 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
             return self.fetch_one(query, (card_id,))
         except Exception as e:
             logging.error(f"Error fetching flashcard with card_id {card_id}: {e}")
+            raise
+
+    def fetch_flashcards_by_set(self, user_id: int, set_name: str) -> List[Dict[str, Any]]:
+        """Fetch flashcards by set name."""
+        logging.info(f"Fetching flashcards by set_name: {set_name}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        if not isinstance(set_name, str) or not set_name.strip():
+            raise ValueError(f"Invalid set_name: {set_name}")
+
+        try:
+            query = """
+                SELECT card_id, set_name, front, back
+                FROM Flashcards
+                WHERE user_id = ? AND set_name = ?
+            """
+            return self.fetch(query, (user_id, set_name))
+        except Exception as e:
+            logging.error(f"Error fetching flashcards by set_name {set_name}: {e}")
+            raise
+
+    def fetch_sets(self, user_id: int) -> List[str]:
+        """Fetch all flashcard sets for a user."""
+        logging.info(f"Fetching flashcard sets for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        try:
+            query = """
+                SELECT DISTINCT set_name
+                FROM Flashcards
+                WHERE user_id = ?
+            """
+            sets = self.fetch(query, (user_id,))
+            return [set["set_name"] for set in sets]
+        except Exception as e:
+            logging.error(f"Error fetching flashcard sets for user {user_id}: {e}")
             raise

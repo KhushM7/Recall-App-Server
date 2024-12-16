@@ -114,3 +114,19 @@ class UserAuthentication:
             return result[0] if result else None
         finally:
             conn.close()
+
+    def get_username(self, user_id: int) -> Optional[str]:
+        """
+        Retrieve the username based on the user ID.
+
+        :param user_id: The ID of the user.
+        :return: The username if found, otherwise None.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT username FROM Users WHERE user_id = ?", (user_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+        finally:
+            conn.close()
