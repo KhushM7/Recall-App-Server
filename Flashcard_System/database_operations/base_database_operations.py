@@ -74,3 +74,17 @@ class BaseDatabaseOperations(ABC):
         except sqlite3.Error as e:
             logging.error(f"Error during update: {e}")
             raise RuntimeError(f"Database error: {e}")
+
+    @abstractmethod
+    def delete(self, query: str, params: Tuple = ()) -> None:
+        """Execute a DELETE query."""
+        try:
+            if not params:
+                raise ValueError("Delete operation requires parameters.")
+            logging.info(f"Deleting with query: {query} and params: {params}")
+            with self.conn:
+                self.conn.execute(query, params)
+            logging.info("Delete operation successful")
+        except sqlite3.Error as e:
+            logging.error(f"Error during delete: {e}")
+            raise RuntimeError(f"Database error: {e}")

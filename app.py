@@ -13,7 +13,7 @@ DATABASE_PATH = "physics_revision_app.db"
 auth = UserAuthentication(DATABASE_PATH)
 fsrs_manager = FSRSManager(DATABASE_PATH)
 db_service = DatabaseService("physics_revision_app.db")
-today = datetime(2024, 11, 26)
+today = datetime(2024, 12, 2)
 
 
 @app.route("/send_verification_code", methods=["POST"])
@@ -105,6 +105,7 @@ def get_user_id() -> Tuple[Response, int]:
         return jsonify({"user_id": user_id}), 200
     return jsonify({"error": "User not found"}), 404
 
+
 @app.route("/get_username", methods=["GET"])
 def get_username() -> Tuple[Response, int]:
     user_id = request.args.get("user_id", type=int)
@@ -114,6 +115,7 @@ def get_username() -> Tuple[Response, int]:
     if username:
         return jsonify({"username": username}), 200
     return jsonify({"error": "User not found"}), 404
+
 
 @app.route("/get_due_flashcards", methods=["GET"])
 def get_due_flashcards():
@@ -128,6 +130,7 @@ def get_due_flashcards():
         print(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/get_flashcards_by_set", methods=["GET"])
 def get_flashcards_by_set():
     user_id = request.args.get("user_id", type=int)
@@ -137,10 +140,10 @@ def get_flashcards_by_set():
         return jsonify({"error": "User ID and set name are required"}), 400
     try:
         flashcards = db_service.flashcard_ops.fetch_flashcards_by_set(user_id, set_name)
-        print(jsonify({"flashcards": flashcards}))
         return jsonify({"flashcards": flashcards}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/get_sets", methods=["GET"])
 def get_sets():
@@ -175,6 +178,7 @@ def submit_rating():
     else:
         return jsonify({"error": "Failed to process rating"}), 500
 
+
 @app.route("/create_flashcard", methods=["POST"])
 def create_flashcard():
     data = request.json
@@ -186,12 +190,64 @@ def create_flashcard():
     back = flashcard_data.get("back")
 
     if not all([user_id, set_name, front, back]):
-        return jsonify({"error": "User ID, set name, front, and back are required"}), 400
+        return (
+            jsonify({"error": "User ID, set name, front, and back are required"}),
+            400,
+        )
 
     try:
         # today = datetime(2024, 11, 26)
-        card_id = db_service.flashcard_ops.create_flashcard(user_id, flashcard_data, today)
+        card_id = db_service.flashcard_ops.create_flashcard(
+            user_id, flashcard_data, today
+        )
         return jsonify({"card_id": card_id}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/delete_card", methods=["POST"])
+def delete_card():
+    data = request.json
+    user_id = data.get("user_id")
+    card_id = data.get("card_id")
+    if not all([user_id, card_id]):
+        return jsonify({"error": "User ID and card ID are required"}), 400
+    try:
+        db_service.flashcard_ops.delete_card(user_id, card_id)
+        db_service.user_performance_ops.delete_card(user_id, card_id)
+        return jsonify({"message": "Flashcard deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/delete_set", methods=["POST"])
+def delete_set():
+    data = request.json
+    user_id = data.get("user_id")
+    set_name = data.get("set_name")
+    if not all([user_id, set_name]):
+        return jsonify({"error": "User ID and set name are required"}), 400
+    try:
+        card_id_to_delete = db_service.flashcard_ops.get_card_id_for_set(
+            user_id, set_name
+        )
+        db_service.flashcard_ops.delete_set(user_id, set_name)
+        db_service.user_performance_ops.delete_set(user_id, card_id_to_delete)
+        return jsonify({"message": "Flashcard set deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/update_flashcard", methods=["POST"])
+def update_flashcard():
+    data = request.json
+    user_id = data.get("user_id")
+    flashcard = data.get("flashcard")
+    if not all([user_id, flashcard]):
+        return jsonify({"error": "User ID, set name, and flashcard are required"}), 400
+    try:
+        db_service.flashcard_ops.update_flashcard(user_id, flashcard)
+        return jsonify({"message": "Flashcard updated successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

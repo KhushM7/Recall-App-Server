@@ -40,6 +40,14 @@ class DailyReviewLogOperations(BaseDatabaseOperations, ABC):
             logging.error(f"Error updating data in DailyReviewLogOperations: {e}")
             raise
 
+    def delete(self, query: str, params: Tuple = ()) -> None:
+        """Delete data from the database."""
+        try:
+            super().delete(query, params)
+        except Exception as e:
+            logging.error(f"Error deleting data in DailyReviewLogOperations: {e}")
+            raise
+
     def fetch_reviewed_today(self, user_id: int, review_date: str) -> int:
         """Fetch how many cards the user has already reviewed today."""
         logging.info(

@@ -41,6 +41,14 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
             logging.error(f"Error updating data in UserPerformanceOperations: {e}")
             raise
 
+    def delete(self, query: str, params: Tuple = ()) -> None:
+        """Delete data from the database."""
+        try:
+            super().delete(query, params)
+        except Exception as e:
+            logging.error(f"Error deleting data in UserPerformanceOperations: {e}")
+            raise
+
     def store_review_result(self, user_id: int, card_data: Dict[str, Any]) -> None:
         """Store the review result for a user's card."""
         logging.info(
@@ -150,3 +158,44 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
             WHERE user_id = ? AND card_id = ?
         """
         return self.fetch_one(query, (user_id, card_id))
+
+    def delete_card(self, user_id: int, card_id: int):
+        """Delete a flashcard from UserPerformance Table using card id."""
+        logging.info(f"Deleting flashcard for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        if not isinstance(card_id, int) or card_id <= 0:
+            raise ValueError(f"Invalid card id: {card_id}")
+
+        try:
+            query = """
+                DELETE FROM UserPerformance
+                WHERE user_id = ? AND card_id = ?
+            """
+            self.delete(query, (user_id, card_id))
+        except Exception as e:
+            logging.error(f"Error deleting flashcard for user {user_id}: {e}")
+            raise
+
+    def delete_set(self, user_id: int, card_id_for_set: list):
+        """Delete a flashcard set from UserPerformance Table using card id's."""
+        logging.info(f"Deleting flashcard set for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        if not isinstance(card_id_for_set, list) or len(card_id_for_set) == 0:
+            raise ValueError(f"Invalid card id's: {card_id_for_set}")
+
+        try:
+            query = """
+                DELETE FROM UserPerformance
+                WHERE user_id = ? AND card_id = ?
+            """
+            for card_id in card_id_for_set:
+                self.delete(query, (user_id, card_id))
+        except Exception as e:
+            logging.error(f"Error deleting flashcard set for user {user_id}: {e}")
+            raise

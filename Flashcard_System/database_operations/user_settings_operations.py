@@ -41,6 +41,14 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
             logging.error(f"Error updating data in UserSettingsOperations: {e}")
             raise
 
+    def delete(self, query: str, params: Tuple = ()) -> None:
+        """Delete data from the database."""
+        try:
+            super().delete(query, params)
+        except Exception as e:
+            logging.error(f"Error deleting data in UserSettingsOperations: {e}")
+            raise
+
     def fetch_daily_review_limit(self, user_id: int) -> Optional[int]:
         """Fetch the daily review limit for a user from UserSettings."""
         logging.info(f"Fetching daily review limit for user_id: {user_id}")

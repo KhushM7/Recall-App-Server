@@ -42,7 +42,17 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
             logging.error(f"Error updating data in FlashcardOperations: {e}")
             raise
 
-    def create_flashcard(self, user_id: int, flashcard_data: Dict[str, Any], next_review_date: datetime) -> None:
+    def delete(self, query: str, params: Tuple = ()) -> None:
+        """Delete data from the database."""
+        try:
+            super().delete(query, params)
+        except Exception as e:
+            logging.error(f"Error deleting data in FlashcardOperations: {e}")
+            raise
+
+    def create_flashcard(
+        self, user_id: int, flashcard_data: Dict[str, Any], next_review_date: datetime
+    ) -> None:
         """Create a new flashcard for a user."""
         logging.info(f"Creating flashcard for user_id: {user_id}")
 
@@ -91,10 +101,17 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
                 INSERT INTO UserPerformance (user_id, card_id, review_time, next_review_date)
                 VALUES (?, ?, ?, ?)
             """
-            params = (user_id, next_card_id, next_review_date.strftime('%Y-%m-%d'), next_review_date.strftime('%Y-%m-%d'))
+            params = (
+                user_id,
+                next_card_id,
+                next_review_date.strftime("%Y-%m-%d"),
+                next_review_date.strftime("%Y-%m-%d"),
+            )
             self.insert(insert_user_performance_query, params)
         except Exception as e:
-            logging.error(f"Error creating user performance record for user {user_id}: {e}")
+            logging.error(
+                f"Error creating user performance record for user {user_id}: {e}"
+            )
             raise
 
     def fetch_due_cards(
@@ -143,7 +160,9 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
             logging.error(f"Error fetching flashcard with card_id {card_id}: {e}")
             raise
 
-    def fetch_flashcards_by_set(self, user_id: int, set_name: str) -> List[Dict[str, Any]]:
+    def fetch_flashcards_by_set(
+        self, user_id: int, set_name: str
+    ) -> List[Dict[str, Any]]:
         """Fetch flashcards by set name."""
         logging.info(f"Fetching flashcards by set_name: {set_name}")
 
@@ -155,7 +174,7 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
 
         try:
             query = """
-                SELECT card_id, set_name, front, back
+                SELECT card_id, front, back
                 FROM Flashcards
                 WHERE user_id = ? AND set_name = ?
             """
@@ -181,4 +200,95 @@ class FlashcardOperations(BaseDatabaseOperations, ABC):
             return [set["set_name"] for set in sets]
         except Exception as e:
             logging.error(f"Error fetching flashcard sets for user {user_id}: {e}")
+            raise
+
+    def delete_card(self, user_id: int, card_id: int):
+        """Delete a flashcard from Flashcards Table using card id."""
+        logging.info(f"Deleting flashcard for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        if not isinstance(card_id, int) or card_id <= 0:
+            raise ValueError(f"Invalid card_id: {card_id}")
+
+        try:
+            query = """
+                DELETE FROM Flashcards
+                WHERE user_id = ? AND card_id = ?
+            """
+            self.delete(query, (user_id, card_id))
+        except Exception as e:
+            logging.error(f"Error deleting flashcard for user {user_id}: {e}")
+            raise
+
+    def delete_set(self, user_id: int, set_name: str):
+        """Delete a flashcard set."""
+        logging.info(f"Deleting flashcard set for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        if not isinstance(set_name, str) or not set_name.strip():
+            raise ValueError(f"Invalid set_name: {set_name}")
+
+        try:
+            query = """
+                DELETE FROM Flashcards
+                WHERE user_id = ? AND set_name = ?
+            """
+            self.delete(query, (user_id, set_name))
+        except Exception as e:
+            logging.error(f"Error deleting flashcard set for user {user_id}: {e}")
+            raise
+
+    def get_card_id_for_set(self, user_id: int, set_name: str) -> List[int]:
+        """Fetch card IDs for a given set."""
+        logging.info(f"Fetching card IDs for set: {set_name}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        if not isinstance(set_name, str) or not set_name.strip():
+            raise ValueError(f"Invalid set_name: {set_name}")
+
+        try:
+            query = """
+                SELECT card_id
+                FROM Flashcards
+                WHERE user_id = ? AND set_name = ?
+            """
+            cards = self.fetch(query, (user_id, set_name))
+            return [card["card_id"] for card in cards]
+        except Exception as e:
+            logging.error(f"Error fetching card IDs for set {set_name}: {e}")
+            raise
+
+    def update_flashcard(self, user_id: int, flashcard: Dict[str, Any]):
+        """Update an existing flashcard."""
+        logging.info(f"Updating flashcard for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        required_keys = ["card_id", "front", "back"]
+        for key in required_keys:
+            if key not in flashcard:
+                raise ValueError(f"Missing {key} in flashcard data")
+
+        try:
+            query = """
+                UPDATE Flashcards
+                SET front = ?, back = ?
+                WHERE user_id = ? AND card_id = ?
+            """
+            params = (
+                flashcard["front"],
+                flashcard["back"],
+                user_id,
+                flashcard["card_id"],
+            )
+            self.update(query, params)
+        except Exception as e:
+            logging.error(f"Error updating flashcard for user {user_id}: {e}")
             raise
