@@ -8,18 +8,18 @@ class Parameters:
     Attributes:
         request_retention (float): The desired retention of the scheduler. Corresponds to the maximum retrievability a Card object can have before it is due.
         maximum_interval (int): The maximum number of days into the future a Card object can be scheduled for next review.
-        w (tuple[float, ...]): The 19 model weights of the FSRS scheduler.
+        weights (tuple[float, ...]): The 19 model weights of the FSRS scheduler.
     """
 
     def __init__(
         self,
-        w: Optional[Tuple[float, ...]] = None,
+        weights: Optional[Tuple[float, ...]] = None,
         request_retention: Optional[float] = None,
         maximum_interval: Optional[int] = None,
     ) -> None:
-        self.w = (
-            w
-            if w is not None
+        self.weights = (
+            weights
+            if weights is not None
             else (
                 0.4072,
                 1.1829,

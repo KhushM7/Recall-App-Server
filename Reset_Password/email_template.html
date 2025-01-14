@@ -14,7 +14,7 @@
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); border: 2px solid #bbdefb;">
                     <tr>
                         <td align="center" style="background-color: #0d47a1; padding: 15px; border-radius: 10px 10px 0 0; text-align: center; color: #ffffff; font-size: 26px;">
-                            Physics Revision App
+                            Revision App
                         </td>
                     </tr>
                     <tr>
@@ -36,7 +36,7 @@
                     </tr>
                     <tr>
                         <td align="center" style="text-align: center; font-size: 12px; color: #1e88e5; margin-top: 30px;">
-                            <p style="margin: 5px 0;">Thank you for using Physics Revision App.</p>
+                            <p style="margin: 5px 0;">Thank you for using This Revision App.</p>
                             <p style="margin: 5px 0;">&copy; 2024 Physics Revision App. All rights reserved.</p>
                         </td>
                     </tr>
@@ -47,9 +47,9 @@
 
     <script>
         function copyToClipboard() {
-            const otpText = 'otp'; // Replace with dynamic OTP value if needed
+            const otpText = 'otp'; // Replace with dynamic OTP value
             navigator.clipboard.writeText(otpText).then(() => {
-                document.getElementById('copy-link').innerHTML = '&#x1F5F8;'; // LIGHT CHECK MARK
+                document.getElementById('copy-link').innerHTML = '&#x1F5F8;'; // LIGHT GREEN CHECK MARK
                 document.getElementById('copy-link').style.color = 'green';
             }).catch(err => {
                 console.error('Failed to copy: ', err);

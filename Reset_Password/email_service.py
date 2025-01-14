@@ -13,7 +13,7 @@ from sendgrid.helpers.mail import Mail, Content, From, To
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-DATABASE = "Reset_Password/otp_db.sqlite3"
+DATABASE = "./physics_revision_app.db"
 
 ssl._create_default_https_context = ssl._create_unverified_context
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

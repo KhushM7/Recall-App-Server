@@ -123,7 +123,6 @@ def get_due_flashcards():
     if not user_id:
         return jsonify({"error": "User ID is required"}), 400
     try:
-        # today = datetime(2024, 11, 19)
         flashcards = fsrs_manager.fetch_due_flashcards(user_id, today)
         return jsonify({"flashcards": flashcards}), 200
     except Exception as e:
