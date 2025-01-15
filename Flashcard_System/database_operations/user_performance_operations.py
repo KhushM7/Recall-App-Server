@@ -199,3 +199,59 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         except Exception as e:
             logging.error(f"Error deleting flashcard set for user {user_id}: {e}")
             raise
+
+    def get_next_reviews_by_month(self, user_id: int, month: str, year: int):
+        """Fetch the next review dates for a specific month and year."""
+        import calendar
+        import logging
+
+        logging.info(
+            f"Fetching next review dates for user_id: {user_id}, month: {month}, year: {year}"
+        )
+
+        # Validate input
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+        if not isinstance(month, str) or not month.strip():
+            raise ValueError(f"Invalid month: {month}")
+        if not isinstance(year, int) or year <= 0:
+            raise ValueError(f"Invalid year: {year}")
+
+        # Convert month name to two-digit number
+        try:
+            month_number = f"{list(calendar.month_name).index(month):02}"
+        except ValueError:
+            raise ValueError(f"Invalid month name: {month}")
+
+        try:
+            # SQL query with LIKE for text comparison
+            query = """
+                SELECT 
+                    substr(next_review_date, 9, 2) AS day_of_month, 
+                    COUNT(card_id) AS card_count 
+                FROM UserPerformance 
+                WHERE user_id = ? 
+                  AND next_review_date LIKE ? 
+                GROUP BY day_of_month
+            """
+
+            # Execute the query and fetch the results
+            results = self.fetch(
+                query,
+                (
+                    user_id,
+                    f"{year}-{month_number}%",
+                ),
+            )
+
+            # Convert the results into a dictionary
+            # Convert the results into a dictionary
+            return {
+                int(entry["day_of_month"]): entry["card_count"] for entry in results
+            }
+
+        except Exception as e:
+            logging.error(
+                f"Error fetching next review dates for user {user_id} in {month} {year}: {e}"
+            )
+            raise

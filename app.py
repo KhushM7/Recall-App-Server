@@ -267,5 +267,21 @@ def get_review_log_by_month():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/get_next_reviews_by_month", methods=["GET"])
+def get_next_reviews_by_month():
+    user_id = request.args.get("user_id", type=int)
+    month = request.args.get("month", type=str)
+    year = request.args.get("year", type=int)
+    if not all([user_id, month, year]):
+        return jsonify({"error": "User ID, month, and year are required"}), 400
+    try:
+        next_reviews = db_service.user_performance_ops.get_next_reviews_by_month(
+            user_id, month, year
+        )
+        return jsonify({"next_reviews": next_reviews}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True)
