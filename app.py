@@ -251,5 +251,21 @@ def update_flashcard():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/get_review_log_by_month", methods=["GET"])
+def get_review_log_by_month():
+    user_id = request.args.get("user_id", type=int)
+    month = request.args.get("month", type=str)
+    year = request.args.get("year", type=int)
+    if not all([user_id, month, year]):
+        return jsonify({"error": "User ID, month, and year are required"}), 400
+    try:
+        review_log = db_service.daily_review_log_ops.get_review_log_by_month(
+            user_id, month, year
+        )
+        return jsonify({"review_log": review_log}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True)

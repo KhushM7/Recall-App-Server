@@ -97,3 +97,49 @@ class DailyReviewLogOperations(BaseDatabaseOperations, ABC):
                 f"Error incrementing reviewed card count for user {user_id} on {review_date}: {e}"
             )
             raise
+
+    def get_review_log_by_month(
+        self, user_id: int, month: str, year: int
+    ) -> Dict[int, int]:
+        """Fetch the review log for the specified month and year."""
+        logging.info(
+            f"Fetching review log for user_id: {user_id}, month: {month}, year: {year}"
+        )
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+        if not isinstance(month, str):
+            raise ValueError(f"Invalid month: {month}")
+        if not isinstance(year, int) or year <= 0:
+            raise ValueError(f"Invalid year: {year}")
+
+        try:
+            query = """
+                SELECT review_date, reviewed_cards_count
+                FROM DailyReviewLog
+                WHERE user_id = ? AND strftime('%m', review_date) = ? AND strftime('%Y', review_date) = ?
+            """
+            month_number = {
+                "January": "01",
+                "February": "02",
+                "March": "03",
+                "April": "04",
+                "May": "05",
+                "June": "06",
+                "July": "07",
+                "August": "08",
+                "September": "09",
+                "October": "10",
+                "November": "11",
+                "December": "12",
+            }[month]
+            results = self.fetch(query, (user_id, month_number, str(year)))
+            return {
+                int(result["review_date"].split("-")[2]): result["reviewed_cards_count"]
+                for result in results
+            }
+        except Exception as e:
+            logging.error(
+                f"Error fetching review log for user {user_id} in {month} {year}: {e}"
+            )
+            raise
