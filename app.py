@@ -13,7 +13,7 @@ DATABASE_PATH = "physics_revision_app.db"
 auth = UserAuthentication(DATABASE_PATH)
 fsrs_manager = FSRSManager(DATABASE_PATH)
 db_service = DatabaseService("physics_revision_app.db")
-today = datetime(2024, 12, 2)
+today = datetime(2024, 12, 3)
 
 
 @app.route("/send_verification_code", methods=["POST"])
@@ -279,6 +279,69 @@ def get_next_reviews_by_month():
             user_id, month, year
         )
         return jsonify({"next_reviews": next_reviews}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/get_all_current_card_states", methods=["GET"])
+def get_all_current_card_states():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    try:
+        card_states = db_service.user_performance_ops.get_all_current_card_states(
+            user_id
+        )
+        return jsonify({"card_states": card_states}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/get_total_lapses", methods=["GET"])
+def get_total_lapses():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    try:
+        total_lapses = db_service.user_performance_ops.get_total_lapses(user_id)
+        return jsonify({"total_lapses": total_lapses}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/get_stability_data", methods=["GET"])
+def get_stability_data():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    try:
+        stability_data = db_service.user_performance_ops.get_stability_data(user_id)
+        return jsonify({"stability_data": stability_data}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/get_difficulty_data", methods=["GET"])
+def get_difficulty_data():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    try:
+        difficulty_data = db_service.user_performance_ops.get_difficulty_data(user_id)
+        return jsonify({"difficulty_data": difficulty_data}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/get_current_ratings", methods=["GET"])
+def get_current_ratings():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    try:
+        current_ratings = db_service.user_performance_ops.get_current_ratings(user_id)
+
+        return jsonify({"current_ratings": current_ratings}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

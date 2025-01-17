@@ -255,3 +255,119 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
                 f"Error fetching next review dates for user {user_id} in {month} {year}: {e}"
             )
             raise
+
+    def get_all_current_card_states(self, user_id: int) -> Dict[str, Any]:
+        """Fetch all current card states for a user."""
+        logging.info(f"Fetching all current card states for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        try:
+            query = """
+                SELECT state, COUNT(card_id) AS count
+                FROM UserPerformance
+                WHERE user_id = ?
+                GROUP BY state
+            """
+            results = self.fetch(query, (user_id,))
+
+            # Map the state numbers to their corresponding names
+            state_mapping = {0: "New", 1: "Learning", 2: "Review", 3: "Relearning"}
+            state_counts = {
+                state_mapping[row["state"]]: row["count"] for row in results
+            }
+
+            return state_counts
+        except Exception as e:
+            logging.error(f"Error fetching current card states for user {user_id}: {e}")
+            raise
+
+    def get_total_lapses(self, user_id: int) -> int:
+        """Fetch the total number of lapses for a user."""
+        logging.info(f"Fetching total lapses for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        try:
+            query = """
+                SELECT SUM(lapses) AS total_lapses
+                FROM UserPerformance
+                WHERE user_id = ?
+            """
+            result = self.fetch_one(query, (user_id,))
+
+            return result["total_lapses"] if result["total_lapses"] else 0
+        except Exception as e:
+            logging.error(f"Error fetching total lapses for user {user_id}: {e}")
+            raise
+
+    def get_stability_data(self, user_id: int) -> Dict[str, Any]:
+        """Fetch the stability data for a user."""
+        logging.info(f"Fetching stability data for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        try:
+            query = """
+                SELECT stability, card_id
+                FROM UserPerformance
+                WHERE user_id = ?
+            """
+            results = self.fetch(query, (user_id,))
+            return {row["card_id"]: row["stability"] for row in results}
+        except Exception as e:
+            logging.error(f"Error fetching stability data for user {user_id}: {e}")
+            raise
+
+    def get_difficulty_data(self, user_id: int) -> Dict[str, Any]:
+        """Fetch the difficulty data for a user."""
+        logging.info(f"Fetching difficulty data for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        try:
+            query = """
+                SELECT difficulty, card_id
+                FROM UserPerformance
+                WHERE user_id = ?
+            """
+            results = self.fetch(query, (user_id,))
+            return {row["card_id"]: row["difficulty"] for row in results}
+        except Exception as e:
+            logging.error(f"Error fetching difficulty data for user {user_id}: {e}")
+            raise
+
+    def get_current_ratings(self, user_id: int) -> Dict[str, Any]:
+        """Fetch the current ratings for a user."""
+        logging.info(f"Fetching current ratings for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+
+        try:
+            query = """
+                SELECT rating, COUNT(card_id) as count
+                FROM UserPerformance
+                WHERE user_id = ?
+                GROUP BY rating
+            """
+            results = self.fetch(query, (user_id,))
+            rating_mapping = {
+                0: "Not Reviewed",
+                1: "Again",
+                2: "Hard",
+                3: "Good",
+                4: "Easy",
+            }
+            rating_counts = {
+                rating_mapping[row["rating"]]: row["count"] for row in results
+            }
+
+            return rating_counts
+        except Exception as e:
+            logging.error(f"Error fetching current ratings for user {user_id}: {e}")
+            raise
