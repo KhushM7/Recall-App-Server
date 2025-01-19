@@ -67,3 +67,23 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
         except Exception as e:
             logging.error(f"Error fetching daily review limit for user {user_id}: {e}")
             raise
+
+    def update_daily_review_limit(self, user_id: int, new_limit: int) -> None:
+        """Update the daily review limit for a user."""
+        logging.info(f"Updating daily review limit for user_id: {user_id}")
+
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError(f"Invalid user_id: {user_id}")
+        if not isinstance(new_limit, int) or new_limit <= 0:
+            raise ValueError(f"Invalid new_limit: {new_limit}")
+
+        try:
+            query = """
+                UPDATE UserSettings
+                SET daily_review_limit = ?
+                WHERE user_id = ?
+            """
+            self.insert(query, (new_limit, user_id))
+        except Exception as e:
+            logging.error(f"Error updating daily review limit for user {user_id}: {e}")
+            raise

@@ -130,3 +130,64 @@ class UserAuthentication:
             return result[0] if result else None
         finally:
             conn.close()
+
+    def update_email(self, user_id: int, new_email: str) -> bool:
+        """
+        Update the email for a user by sending the new email to the server.
+
+        :param user_id: The ID of the user.
+        :param new_email: The new email for the user.
+        :return: True if the email was updated successfully, False otherwise.
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE Users SET email = ? WHERE user_id = ?", (new_email, user_id)
+            )
+            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def update_username(self, user_id: int, new_username: str) -> bool:
+        """
+        Update the username for a user by sending the new username to the server.
+
+        :param user_id: The ID of the user.
+        :param new_username: The new username for the user.
+        :return: True if the username was updated successfully, False otherwise.
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE Users SET username = ? WHERE user_id = ?",
+                (new_username, user_id),
+            )
+            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def get_email(self, user_id: int) -> Optional[str]:
+        """
+        Retrieve the email based on user ID.
+
+        :param user_id: The ID of the user.
+        :return: Email if found, otherwise None.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT email FROM Users WHERE user_id = ?", (user_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+        finally:
+            conn.close()

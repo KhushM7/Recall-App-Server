@@ -346,5 +346,63 @@ def get_current_ratings():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/update_email", methods=["POST"])
+def update_email():
+    data = request.json
+    user_id = data.get("user_id")
+    new_email = data.get("email")
+    if not all([user_id, new_email]):
+        return jsonify({"error": "User ID and new email are required"}), 400
+    if auth.update_email(user_id, new_email):
+        return jsonify({"message": "Email updated successfully"}), 200
+    return jsonify({"error": "Failed to update email"}), 500
+
+
+@app.route("/update_username", methods=["POST"])
+def update_username():
+    data = request.json
+    user_id = data.get("user_id")
+    new_username = data.get("username")
+    if not all([user_id, new_username]):
+        return jsonify({"error": "User ID and new username are required"}), 400
+    if auth.update_username(user_id, new_username):
+        return jsonify({"message": "Username updated successfully"}), 200
+    return jsonify({"error": "Failed to update username"}), 500
+
+
+@app.route("/update_daily_review_limit", methods=["POST"])
+def update_daily_review_limit():
+    data = request.json
+    user_id = data.get("user_id")
+    new_limit = data.get("new_limit")
+    if not all([user_id, new_limit]):
+        return jsonify({"error": "User ID and new limit are required"}), 400
+    if db_service.user_settings_ops.update_daily_review_limit(user_id, new_limit):
+        return jsonify({"message": "Daily review limit updated successfully"}), 200
+    return jsonify({"error": "Failed to update daily review limit"}), 500
+
+
+@app.route("/get_email", methods=["GET"])
+def get_email():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    email = auth.get_email(user_id)
+    if email:
+        return jsonify({"email": email}), 200
+    return jsonify({"error": "User not found"}), 404
+
+
+@app.route("/get_daily_review_limit", methods=["GET"])
+def get_daily_review_limit():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    daily_review_limit = db_service.user_settings_ops.fetch_daily_review_limit(user_id)
+    if daily_review_limit is not None:
+        return jsonify({"daily_review_limit": daily_review_limit}), 200
+    return jsonify({"error": "User not found"}), 404
+
+
 if __name__ == "__main__":
     app.run(debug=True)
