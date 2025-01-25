@@ -10,18 +10,18 @@ from Flashcard_System.models.review_log import ReviewLog
 
 # Configure logging
 logging.basicConfig(
-    filename="../physics_server_log.log",
-    filemode="a",
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename="application.log",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logger = logging.getLogger(__name__)
 
 
 class SchedulingInfo:
     """
-    Simple data class that bundles together an updated Card object, and it's corresponding ReviewLog object.
+    Simple data class that bundles together an updated Card object, and its corresponding ReviewLog object.
 
-    This class is specifically used to provide an updated card, and it's review log after a card has been reviewed.
+    This class is specifically used to provide an updated card, and its review log after a card has been reviewed.
     """
 
     def __init__(self, card: Card, review_log: ReviewLog) -> None:
@@ -48,10 +48,10 @@ class SchedulingCards:
         self.hard = copy.deepcopy(card)
         self.good = copy.deepcopy(card)
         self.easy = copy.deepcopy(card)
-        logging.info(f"SchedulingCards initialized for Card {card.card_id}.")
+        logger.info("SchedulingCards initialized for Card %d.", card.card_id)
 
     def update_state(self, state: State) -> None:
-        logging.info(f"Updating state for SchedulingCards. Original state: {state}.")
+        logger.info("Updating state for SchedulingCards. Original state: %s.", state)
         if state == State.New:
             self.again.state = State.Learning
             self.hard.state = State.Learning
@@ -68,8 +68,12 @@ class SchedulingCards:
             self.good.state = State.Review
             self.easy.state = State.Review
             self.again.lapses += 1
-        logging.info(
-            f"State updated for SchedulingCards: Again={self.again.state}, Hard={self.hard.state}, Good={self.good.state}, Easy={self.easy.state}."
+        logger.info(
+            "State updated for SchedulingCards: Again=%s, Hard=%s, Good=%s, Easy=%s.",
+            self.again.state,
+            self.hard.state,
+            self.good.state,
+            self.easy.state,
         )
 
     def schedule(
@@ -92,14 +96,21 @@ class SchedulingCards:
         self.easy.scheduled_days = easy_interval
         self.easy.due = now + timedelta(days=easy_interval)
 
-        logging.info(
-            f"Scheduling complete for Card. Hard due in {hard_interval} days, Good due in {good_interval} days, Easy due in {easy_interval} days."
+        logger.info(
+            "Scheduling complete for Card. Hard due in %d days, Good due in %d days, Easy due in %d days.",
+            hard_interval,
+            good_interval,
+            easy_interval,
         )
 
     def record_log(self, card: Card, now: datetime) -> Dict[Rating, SchedulingInfo]:
         """
         Records the scheduling information and review log for each rating category.
         """
+        logger.info(
+            "Recording scheduling information and review logs for Card %d.",
+            card.card_id,
+        )
         return {
             Rating.Again: SchedulingInfo(
                 self.again,

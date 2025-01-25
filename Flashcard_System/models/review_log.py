@@ -4,13 +4,13 @@ from typing import Any, Union
 
 from Flashcard_System.models.enums import Rating, State
 
-# Configure logging (repeated for each file to ensure it's applied correctly)
+# Configure logging
 logging.basicConfig(
-    filename="../physics_server_log.log",
-    filemode="a",
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename="application.log",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logger = logging.getLogger(__name__)
 
 
 class ReviewLog:
@@ -48,7 +48,13 @@ class ReviewLog:
         self.elapsed_days = elapsed_days
         self.review = review
         self.state = state
-        logging.info(f"ReviewLog created with rating {self.rating}.")
+        logger.info(
+            "ReviewLog created with rating=%s, scheduled_days=%d, elapsed_days=%d, state=%s.",
+            self.rating.name,
+            self.scheduled_days,
+            self.elapsed_days,
+            self.state.name,
+        )
 
     def to_dict(self) -> dict[str, Union[int, str]]:
         """
@@ -59,6 +65,7 @@ class ReviewLog:
         Returns:
             dict: A dictionary representation of the ReviewLog object.
         """
+        logger.info("Converting ReviewLog to dictionary.")
         return {
             "rating": self.rating.value,
             "scheduled_days": self.scheduled_days,
@@ -84,9 +91,9 @@ class ReviewLog:
             elapsed_days = int(source_dict["elapsed_days"])
             review = datetime.fromisoformat(source_dict["review"])
             state = State(int(source_dict["state"]))
+            logger.info("ReviewLog successfully created from dictionary.")
         except (KeyError, ValueError) as e:
-            logging.error(f"Error parsing ReviewLog from dict: {e}")
+            logger.error("Error parsing ReviewLog from dict: %s", e)
             raise ValueError(f"Error parsing ReviewLog from dict: {e}")
 
-        logging.info("ReviewLog created from dictionary.")
         return ReviewLog(rating, scheduled_days, elapsed_days, review, state)

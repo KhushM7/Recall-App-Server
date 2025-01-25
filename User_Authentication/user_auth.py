@@ -1,11 +1,21 @@
 import sqlite3
+import logging
 from typing import Tuple, Optional
 import bcrypt
+
+# Configure the centralized logger
+logging.basicConfig(
+    filename="application.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 class UserAuthentication:
     def __init__(self, db_path: str):
         self.db_path = db_path
+        logger.info("UserAuthentication initialized with database path: %s", db_path)
 
     def insert_user_into_db(self, email: str, username: str, password: str):
         """Inserts a new user into the database and hashes the password."""
@@ -22,7 +32,11 @@ class UserAuthentication:
                 (email,),
             )
             conn.commit()
+            logger.info("User %s successfully inserted into the database.", username)
         except sqlite3.IntegrityError:
+            logger.error(
+                "Failed to insert user %s: Username or email already exists.", username
+            )
             raise ValueError("Username or email already exists!")
         finally:
             conn.close()
@@ -41,10 +55,15 @@ class UserAuthentication:
         conn.close()
         if user_password:
             if bcrypt.checkpw(password.encode("utf-8"), user_password[0]):
+                logger.info("User %s successfully authenticated.", email_username)
                 return True, None
             else:
+                logger.warning(
+                    "User %s failed authentication: Incorrect password.", email_username
+                )
                 return False, "Incorrect password!"
         else:
+            logger.warning("Authentication failed: %s does not exist.", email_username)
             return False, "Username or email does not exist!"
 
     def update_password(self, email: str, new_password: str) -> bool:
@@ -59,9 +78,10 @@ class UserAuthentication:
                 (hashed_password, email),
             )
             conn.commit()
+            logger.info("Password updated successfully for email: %s", email)
             return True
         except Exception as e:
-            print(f"Failed to update password: {e}")
+            logger.error("Failed to update password for email %s: %s", email, e)
             return False
         finally:
             conn.close()
@@ -72,9 +92,11 @@ class UserAuthentication:
         try:
             cursor.execute("SELECT email FROM Users WHERE email = ?", (email,))
             fetch = cursor.fetchone()
-            return fetch is not None
+            is_taken = fetch is not None
+            logger.info("Email %s taken status: %s", email, is_taken)
+            return is_taken
         except sqlite3.Error as e:
-            print(f"Database error: {e}")
+            logger.error("Database error while checking email %s: %s", email, e)
             return False
         finally:
             conn.close()
@@ -85,9 +107,11 @@ class UserAuthentication:
         try:
             cursor.execute("SELECT username FROM Users WHERE username = ?", (username,))
             fetch = cursor.fetchone()
-            return fetch is not None
+            is_taken = fetch is not None
+            logger.info("Username %s taken status: %s", username, is_taken)
+            return is_taken
         except sqlite3.Error as e:
-            print(f"Database error: {e}")
+            logger.error("Database error while checking username %s: %s", username, e)
             return False
         finally:
             conn.close()
@@ -111,7 +135,9 @@ class UserAuthentication:
                     "SELECT user_id FROM Users WHERE username = ?", (email_or_username,)
                 )
             result = cursor.fetchone()
-            return result[0] if result else None
+            user_id = result[0] if result else None
+            logger.info("Retrieved user ID for %s: %s", email_or_username, user_id)
+            return user_id
         finally:
             conn.close()
 
@@ -127,7 +153,9 @@ class UserAuthentication:
         try:
             cursor.execute("SELECT username FROM Users WHERE user_id = ?", (user_id,))
             result = cursor.fetchone()
-            return result[0] if result else None
+            username = result[0] if result else None
+            logger.info("Retrieved username for user ID %d: %s", user_id, username)
+            return username
         finally:
             conn.close()
 
@@ -146,9 +174,10 @@ class UserAuthentication:
                 "UPDATE Users SET email = ? WHERE user_id = ?", (new_email, user_id)
             )
             conn.commit()
+            logger.info("Email updated successfully for user ID: %d", user_id)
             return True
         except sqlite3.Error as e:
-            print(f"Database error: {e}")
+            logger.error("Failed to update email for user ID %d: %s", user_id, e)
             return False
         finally:
             conn.close()
@@ -169,9 +198,10 @@ class UserAuthentication:
                 (new_username, user_id),
             )
             conn.commit()
+            logger.info("Username updated successfully for user ID: %d", user_id)
             return True
         except sqlite3.Error as e:
-            print(f"Database error: {e}")
+            logger.error("Failed to update username for user ID %d: %s", user_id, e)
             return False
         finally:
             conn.close()
@@ -188,6 +218,8 @@ class UserAuthentication:
         try:
             cursor.execute("SELECT email FROM Users WHERE user_id = ?", (user_id,))
             result = cursor.fetchone()
-            return result[0] if result else None
+            email = result[0] if result else None
+            logger.info("Retrieved email for user ID %d: %s", user_id, email)
+            return email
         finally:
             conn.close()

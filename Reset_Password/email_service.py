@@ -4,6 +4,7 @@ import sqlite3
 import ssl
 import string
 import time
+import logging
 from typing import Optional, Tuple
 
 import urllib3
@@ -15,6 +16,14 @@ SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 DATABASE = "./physics_revision_app.db"
 
+# Configure the centralized logger
+logging.basicConfig(
+    filename="application.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 ssl._create_default_https_context = ssl._create_unverified_context
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -25,12 +34,14 @@ def load_email_template(
 ) -> str:
     with open(file_path, "r") as file:
         template = file.read()
+    logger.info("Loaded email template from %s", file_path)
     return template.replace("otp", otp)
 
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
+    logger.info("Database connection established")
     return conn
 
 
@@ -38,47 +49,60 @@ def store_otp(email: str, otp: str, expiry: float):
     conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-    INSERT OR REPLACE INTO otp (email, otp, expiry)
-    VALUES (?, ?, ?)
-    """,
-        (email, otp, expiry),
-    )
-
-    conn.commit()
-    conn.close()
+    try:
+        c.execute(
+            """
+        INSERT OR REPLACE INTO otp (email, otp, expiry)
+        VALUES (?, ?, ?)
+        """,
+            (email, otp, expiry),
+        )
+        conn.commit()
+        logger.info("Stored OTP for email: %s", email)
+    except sqlite3.Error as e:
+        logger.error("Failed to store OTP for email %s: %s", email, e)
+    finally:
+        conn.close()
 
 
 def get_stored_otp(email: str) -> Optional[sqlite3.Row]:
     conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-    SELECT otp, expiry FROM otp WHERE email = ?
-    """,
-        (email,),
-    )
-
-    result = c.fetchone()
-    conn.close()
-    return result
+    try:
+        c.execute(
+            """
+        SELECT otp, expiry FROM otp WHERE email = ?
+        """,
+            (email,),
+        )
+        result = c.fetchone()
+        logger.info("Retrieved stored OTP for email: %s", email)
+        return result
+    except sqlite3.Error as e:
+        logger.error("Failed to retrieve OTP for email %s: %s", email, e)
+        return None
+    finally:
+        conn.close()
 
 
 def clear_stored_otp(email: str):
     conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute(
-        """
-    DELETE FROM otp WHERE email = ?
-    """,
-        (email,),
-    )
-
-    conn.commit()
-    conn.close()
+    try:
+        c.execute(
+            """
+        DELETE FROM otp WHERE email = ?
+        """,
+            (email,),
+        )
+        conn.commit()
+        logger.info("Cleared OTP for email: %s", email)
+    except sqlite3.Error as e:
+        logger.error("Failed to clear OTP for email %s: %s", email, e)
+    finally:
+        conn.close()
 
 
 def send_email(to_email: str, subject: str, html_content: str) -> bool:
@@ -91,10 +115,12 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
     try:
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
-        print(response.status_code)
+        logger.info(
+            "Email sent to %s with status code %d", to_email, response.status_code
+        )
         return True
     except Exception as e:
-        print(f"Error sending email: {e}")
+        logger.error("Error sending email to %s: %s", to_email, e)
         return False
 
 
@@ -108,8 +134,10 @@ def send_verification_code(email: str) -> Tuple[Response, int]:
     html_content = load_email_template("Reset_Password/email_template.html", otp)
 
     if send_email(email, subject, html_content):
+        logger.info("Verification code sent to %s", email)
         return jsonify({"status": "Verification code sent"}), 200
     else:
+        logger.error("Failed to send verification code to %s", email)
         return jsonify({"error": "Failed to send email"}), 500
 
 
@@ -117,15 +145,19 @@ def verify_otp(email: str, otp: str) -> Tuple[Response, int]:
     stored_otp_data = get_stored_otp(email)
 
     if not stored_otp_data:
+        logger.warning("OTP not found for email: %s", email)
         return jsonify({"error": "OTP not found"}), 400
 
     stored_otp, expiry = stored_otp_data
 
     if time.time() > expiry:
+        logger.warning("OTP expired for email: %s", email)
         return jsonify({"error": "OTP expired"}), 400
 
     if otp == stored_otp:
         clear_stored_otp(email)
+        logger.info("OTP verified for email: %s", email)
         return jsonify({"status": "OTP verified"}), 200
     else:
+        logger.warning("Invalid OTP for email: %s", email)
         return jsonify({"error": "Invalid OTP"}), 400

@@ -10,17 +10,18 @@ from Flashcard_System.models.review_log import ReviewLog
 
 # Configure logging
 logging.basicConfig(
-    filename="../physics_server_log.log",
-    filemode="a",
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename="application.log",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logger = logging.getLogger(__name__)
 
 
 class FSRSManager:
     def __init__(self, db_path: str):
         self.fsrs_scheduler = FSRS()
         self.db_service = DatabaseService(db_path)
+        logger.info("FSRSManager initialized with database path: %s", db_path)
 
     def fetch_due_flashcards(self, user_id: int, review_date: datetime):
         """
@@ -49,13 +50,16 @@ class FSRSManager:
             )
 
             if not flashcards:
-                logging.info(f"No flashcards found for user {user_id} on {today}")
+                logger.info("No flashcards found for user %d on %s", user_id, today)
 
             return flashcards
 
         except Exception as e:
-            logging.error(
-                f"Error fetching due flashcards for user {user_id} on {review_date}: {e}"
+            logger.error(
+                "Error fetching due flashcards for user %d on %s: %s",
+                user_id,
+                review_date,
+                e,
             )
             raise
 
@@ -73,13 +77,13 @@ class FSRSManager:
             try:
                 rating_enum = Rating[rating]  # Convert to enum, e.g., Rating["Good"]
             except KeyError:
-                logging.error(f"Invalid rating value: {rating}")
+                logger.error("Invalid rating value: %s", rating)
                 return False
 
             # Fetch card_data from the database using card_id
             card_data = self.db_service.flashcard_ops.fetch_card_by_id(card_id)
             if not card_data:
-                logging.error(f"Card with ID {card_id} not found for user {user_id}.")
+                logger.error("Card with ID %d not found for user %d.", card_id, user_id)
                 return False
 
             # Load current state of the card
@@ -105,8 +109,8 @@ class FSRSManager:
                 delay = random.randint(0, 1)  # Random delay of 0 or 1 day
                 card.due += timedelta(days=delay)
                 card.scheduled_days += delay
-                logging.info(
-                    f"Random delay of {delay} day(s) applied to card {card.card_id}"
+                logger.info(
+                    "Random delay of %d day(s) applied to card %d", delay, card.card_id
                 )
 
             # Store updated state of the card
@@ -119,11 +123,14 @@ class FSRSManager:
             self.db_service.user_performance_ops.mark_cards_as_priority(
                 user_id, today, mark_today=True
             )
+            logger.info(
+                "Successfully processed rating for user %d, card %d", user_id, card_id
+            )
             return True
 
         except Exception as e:
-            logging.error(
-                f"Error processing rating for user {user_id}, card {card_id}: {e}"
+            logger.error(
+                "Error processing rating for user %d, card %d: %s", user_id, card_id, e
             )
             raise
 
@@ -149,15 +156,18 @@ class FSRSManager:
                     state=State(performance_data["state"]),
                     last_review=datetime.fromisoformat(performance_data["review_time"]),
                 )
-                logging.info(f"Loaded card state: Card ID {card.card_id}")
+                logger.info("Loaded card state: Card ID %d", card.card_id)
             else:
                 card = Card(card_id=card_data["card_id"])
-                logging.info(f"New card initialized: Card ID {card.card_id}")
+                logger.info("New card initialized: Card ID %d", card.card_id)
 
             return card
         except Exception as e:
-            logging.error(
-                f"Error loading card state for user {user_id}, card {card_data['card_id']}: {e}"
+            logger.error(
+                "Error loading card state for user %d, card %d: %s",
+                user_id,
+                card_data["card_id"],
+                e,
             )
             raise
 
@@ -167,7 +177,7 @@ class FSRSManager:
         """Store the updated card state in the UserPerformance table."""
         try:
             next_review_date = card.due.date()
-            logging.info(f"Storing card state: Card ID {card.card_id}")
+            logger.info("Storing card state: Card ID %d", card.card_id)
 
             card_review_data = {
                 "card_id": card.card_id,
@@ -186,12 +196,17 @@ class FSRSManager:
             self.db_service.user_performance_ops.store_review_result(
                 user_id, card_review_data
             )
+            logger.info("Card state stored successfully: Card ID %d", card.card_id)
         except Exception as e:
-            logging.error(
-                f"Error storing card state for user {user_id}, card {card.card_id}: {e}"
+            logger.error(
+                "Error storing card state for user %d, card %d: %s",
+                user_id,
+                card.card_id,
+                e,
             )
             raise
 
     def close(self):
         """Close the database service connection."""
         self.db_service.close()
+        logger.info("Database service connection closed")

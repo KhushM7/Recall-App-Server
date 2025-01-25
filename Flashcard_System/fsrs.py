@@ -10,13 +10,13 @@ from Flashcard_System.models.parameters import Parameters
 from Flashcard_System.models.review_log import ReviewLog
 from Flashcard_System.models.scheduler import SchedulingInfo, SchedulingCards
 
-# Set up logging configuration
+# Configure logging
 logging.basicConfig(
-    filename="../physics_server_log.log",  # Log file name
-    filemode="a",  # Append mode
+    filename="application.log",
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,  # Log level
 )
+logger = logging.getLogger(__name__)
 
 
 class FSRS:
@@ -52,7 +52,7 @@ class FSRS:
         self.p = Parameters(w, request_retention, maximum_interval)
         self.DECAY = -0.5
         self.FACTOR = 0.9 ** (1 / self.DECAY) - 1
-        logging.info("FSRS scheduler initialized with parameters.")
+        logger.info("FSRS scheduler initialized with parameters.")
 
     def review_card(
         self, card: Card, rating: Rating, now: Optional[datetime] = None
@@ -72,8 +72,11 @@ class FSRS:
             if hasattr(card, "due"):
                 now = card.due
 
-        logging.info(
-            f"Reviewing card with ID {card.card_id} at {now}, rating: {rating.name}"
+        logger.info(
+            "Reviewing card with ID %d at %s, rating: %s",
+            card.card_id,
+            now,
+            rating.name,
         )
 
         scheduling_cards = self.generate_scheduling_cards(card, now)
@@ -82,8 +85,8 @@ class FSRS:
 
         self.schedule_next_review(card, now)
 
-        logging.info(
-            f"Card {card.card_id} reviewed successfully, next due date: {card.due}"
+        logger.info(
+            "Card %d reviewed successfully, next due date: %s", card.card_id, card.due
         )
         return card, review_log
 
@@ -101,7 +104,7 @@ class FSRS:
                 next_review_day, time(0, 0, 0), tzinfo=timezone.utc
             )
 
-        logging.info(f"Next review for card {card.card_id} scheduled for {card.due}")
+        logger.info("Next review for card %d scheduled for %s", card.card_id, card.due)
 
     def generate_scheduling_cards(
         self, card: Card, now: Optional[datetime] = None
@@ -124,8 +127,10 @@ class FSRS:
         else:
             self.update_scheduling_intervals(scheduling_cards, card, now)
 
-        logging.info(
-            f"Scheduling info generated for card {card.card_id} in state {card.state.name}"
+        logger.info(
+            "Scheduling info generated for card %d in state %s",
+            card.card_id,
+            card.state.name,
         )
         return scheduling_cards.record_log(card, now)
 
@@ -144,8 +149,11 @@ class FSRS:
 
         card.last_review = now
         card.reps += 1
-        logging.info(
-            f"Card {card.card_id} updated with {card.reps} repetitions, elapsed days: {card.elapsed_days}"
+        logger.info(
+            "Card %d updated with %d repetitions, elapsed days: %d",
+            card.card_id,
+            card.reps,
+            card.elapsed_days,
         )
 
     def initialize_scheduling_intervals(
@@ -162,7 +170,7 @@ class FSRS:
         scheduling_cards.easy.scheduled_days = easy_interval
         scheduling_cards.easy.due = now + timedelta(days=easy_interval)
 
-        logging.info("Scheduling intervals initialized for new card.")
+        logger.info("Scheduling intervals initialized for new card.")
 
     def initialize_difficulty_stability(
         self, scheduling_cards: SchedulingCards
@@ -203,7 +211,7 @@ class FSRS:
         else:
             self.schedule_review_card(scheduling_cards, now)
 
-        logging.info(f"Scheduling intervals updated for card {card.card_id}")
+        logger.info("Scheduling intervals updated for card %d", card.card_id)
 
     def schedule_learning_card(
         self, scheduling_cards: SchedulingCards, now: datetime
@@ -286,7 +294,6 @@ class FSRS:
                 last_difficulty, last_stability, retrievability, Rating.Easy
             )
 
-    # Helper functions (all included)
     def init_stability(self, r: Rating) -> float:
         return max(self.p.w[r - 1], 0.1)
 

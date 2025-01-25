@@ -13,7 +13,8 @@ DATABASE_PATH = "physics_revision_app.db"
 auth = UserAuthentication(DATABASE_PATH)
 fsrs_manager = FSRSManager(DATABASE_PATH)
 db_service = DatabaseService("physics_revision_app.db")
-today = datetime(2024, 12, 3)
+# today = datetime(2024, 12, 3)
+today = datetime.today()
 
 
 @app.route("/send_verification_code", methods=["POST"])

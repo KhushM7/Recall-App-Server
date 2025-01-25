@@ -6,11 +6,11 @@ from Flashcard_System.models.enums import State
 
 # Configure logging
 logging.basicConfig(
-    filename="../physics_server_log.log",
-    filemode="a",
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename="application.log",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logger = logging.getLogger(__name__)
 
 
 class Card:
@@ -70,13 +70,15 @@ class Card:
         self.state = state
         self.last_review = last_review
 
-        logging.info(f"Initialized Card with ID {self.card_id}.")
+        logger.info("Initialized Card with ID %d.", self.card_id)
 
     def to_dict(self) -> dict[str, Any]:
         """
         Returns a JSON-serializable dictionary representation of the Card object.
         """
+        logger.info("Converting Card %d to dictionary.", self.card_id)
         return_dict = {
+            "card_id": self.card_id,
             "due": self.due.isoformat(),
             "stability": self.stability,
             "difficulty": self.difficulty,
@@ -101,9 +103,10 @@ class Card:
             source_dict (dict[str, Any]): A dictionary representing an existing Card object.
 
         Returns:
-            ReviewLog: A Card object created from the provided dictionary.
+            Card: A Card object created from the provided dictionary.
         """
         try:
+            card_id = int(source_dict.get("card_id", 0))
             due = datetime.fromisoformat(source_dict["due"])
             stability = float(source_dict["stability"])
             difficulty = float(source_dict["difficulty"])
@@ -117,19 +120,15 @@ class Card:
                 if "last_review" in source_dict
                 else None
             )
-        except KeyError as e:
-            logging.error(f"Missing key: {str(e)} in source_dict")
-            raise ValueError(f"Missing key: {str(e)}")
-        except ValueError as e:
-            logging.error(f"Invalid value: {str(e)} in source_dict")
-            raise ValueError(f"Invalid value: {str(e)}")
-
-        logging.info(
-            f"Card created from dictionary with ID: {source_dict.get('card_id', 'unknown')}."
-        )
+            logger.info(
+                "Card successfully created from dictionary with ID: %d", card_id
+            )
+        except (KeyError, ValueError) as e:
+            logger.error("Error parsing Card from dict: %s", e)
+            raise ValueError(f"Error parsing Card from dict: {e}")
 
         return Card(
-            card_id=source_dict.get("card_id", 0),
+            card_id=card_id,
             due=due,
             stability=stability,
             difficulty=difficulty,
@@ -160,9 +159,14 @@ class Card:
         if self.state in (State.Learning, State.Review, State.Relearning):
             elapsed_days = max(0, (now - self.last_review).days)
             retrievability = (1 + FACTOR * elapsed_days / self.stability) ** DECAY
-            logging.info(
-                f"Retrievability for Card {self.card_id} calculated: {retrievability}."
+            logger.info(
+                "Retrievability for Card %d calculated: %f.",
+                self.card_id,
+                retrievability,
             )
             return retrievability
         else:
+            logger.info(
+                "Retrievability for Card %d is 0 due to inactive state.", self.card_id
+            )
             return 0
