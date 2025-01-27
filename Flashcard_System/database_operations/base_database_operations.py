@@ -5,16 +5,17 @@ from typing import List, Any, Tuple, Optional
 
 # Configure logging
 logging.basicConfig(
-    filename="../physics_server_log.log",
-    filemode="a",
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename="application.log",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logger = logging.getLogger(__name__)
 
 
 class BaseDatabaseOperations(ABC):
     def __init__(self, conn: sqlite3.Connection):
         if conn is None:
+            logger.error("Database connection cannot be None")
             raise ValueError("Database connection cannot be None")
         self.conn = conn
 
@@ -22,29 +23,31 @@ class BaseDatabaseOperations(ABC):
     def fetch(self, query: str, params: Tuple = ()) -> List[Any]:
         """Execute a SELECT query and return the results."""
         try:
-            logging.info(f"Executing query: {query} with params: {params}")
+            logger.info("Executing query: %s with params: %s", query, params)
             cursor = self.conn.execute(query, params)
             result = [dict(row) for row in cursor.fetchall()]
-            logging.info(f"Fetched {len(result)} rows")
+            logger.info("Fetched %d rows", len(result))
             return result
         except sqlite3.Error as e:
-            logging.error(f"Error fetching data: {e}")
+            logger.error("Error fetching data: %s", e)
             raise RuntimeError(f"Database error: {e}")
 
     @abstractmethod
     def fetch_one(self, query: str, params: Tuple = ()) -> Optional[Any]:
         """Execute a SELECT query and return a single row."""
         try:
-            logging.info(f"Executing query (fetch one): {query} with params: {params}")
+            logger.info(
+                "Executing query (fetch one): %s with params: %s", query, params
+            )
             cursor = self.conn.execute(query, params)
             result = cursor.fetchone()
             if result:
-                logging.info(f"Fetched row: {dict(result)}")
+                logger.info("Fetched row: %s", dict(result))
                 return dict(result)
-            logging.info("No rows found")
+            logger.info("No rows found")
             return None
         except sqlite3.Error as e:
-            logging.error(f"Error fetching data: {e}")
+            logger.error("Error fetching data: %s", e)
             raise RuntimeError(f"Database error: {e}")
 
     @abstractmethod
@@ -52,13 +55,14 @@ class BaseDatabaseOperations(ABC):
         """Execute an INSERT query."""
         try:
             if not params:
+                logger.error("Insert operation requires parameters.")
                 raise ValueError("Insert operation requires parameters.")
-            logging.info(f"Inserting with query: {query} and params: {params}")
+            logger.info("Inserting with query: %s and params: %s", query, params)
             with self.conn:
                 self.conn.execute(query, params)
-            logging.info("Insert operation successful")
+            logger.info("Insert operation successful")
         except sqlite3.Error as e:
-            logging.error(f"Error during insert: {e}")
+            logger.error("Error during insert: %s", e)
             raise RuntimeError(f"Database error: {e}")
 
     @abstractmethod
@@ -66,13 +70,14 @@ class BaseDatabaseOperations(ABC):
         """Execute an UPDATE query."""
         try:
             if not params:
+                logger.error("Update operation requires parameters.")
                 raise ValueError("Update operation requires parameters.")
-            logging.info(f"Updating with query: {query} and params: {params}")
+            logger.info("Updating with query: %s and params: %s", query, params)
             with self.conn:
                 self.conn.execute(query, params)
-            logging.info("Update operation successful")
+            logger.info("Update operation successful")
         except sqlite3.Error as e:
-            logging.error(f"Error during update: {e}")
+            logger.error("Error during update: %s", e)
             raise RuntimeError(f"Database error: {e}")
 
     @abstractmethod
@@ -80,11 +85,12 @@ class BaseDatabaseOperations(ABC):
         """Execute a DELETE query."""
         try:
             if not params:
+                logger.error("Delete operation requires parameters.")
                 raise ValueError("Delete operation requires parameters.")
-            logging.info(f"Deleting with query: {query} and params: {params}")
+            logger.info("Deleting with query: %s and params: %s", query, params)
             with self.conn:
                 self.conn.execute(query, params)
-            logging.info("Delete operation successful")
+            logger.info("Delete operation successful")
         except sqlite3.Error as e:
-            logging.error(f"Error during delete: {e}")
+            logger.error("Error during delete: %s", e)
             raise RuntimeError(f"Database error: {e}")

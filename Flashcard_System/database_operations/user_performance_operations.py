@@ -7,6 +7,14 @@ from Flashcard_System.database_operations.base_database_operations import (
     BaseDatabaseOperations,
 )
 
+# Configure logging
+logging.basicConfig(
+    filename="application.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 
 class UserPerformanceOperations(BaseDatabaseOperations, ABC):
     def fetch(self, query: str, params: Tuple = ()) -> List[Any]:
@@ -14,7 +22,7 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         try:
             return super().fetch(query, params)
         except Exception as e:
-            logging.error(f"Error fetching data in UserPerformanceOperations: {e}")
+            logger.error("Error fetching data in UserPerformanceOperations: %s", e)
             raise
 
     def fetch_one(self, query: str, params: Tuple = ()) -> Dict[str, Any]:
@@ -22,7 +30,7 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         try:
             return super().fetch_one(query, params)
         except Exception as e:
-            logging.error(f"Error fetching one row in UserPerformanceOperations: {e}")
+            logger.error("Error fetching one row in UserPerformanceOperations: %s", e)
             raise
 
     def insert(self, query: str, params: Tuple = ()) -> None:
@@ -30,7 +38,7 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         try:
             super().insert(query, params)
         except Exception as e:
-            logging.error(f"Error inserting data in UserPerformanceOperations: {e}")
+            logger.error("Error inserting data in UserPerformanceOperations: %s", e)
             raise
 
     def update(self, query: str, params: Tuple = ()) -> None:
@@ -38,7 +46,7 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         try:
             super().update(query, params)
         except Exception as e:
-            logging.error(f"Error updating data in UserPerformanceOperations: {e}")
+            logger.error("Error updating data in UserPerformanceOperations: %s", e)
             raise
 
     def delete(self, query: str, params: Tuple = ()) -> None:
@@ -46,16 +54,19 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         try:
             super().delete(query, params)
         except Exception as e:
-            logging.error(f"Error deleting data in UserPerformanceOperations: {e}")
+            logger.error("Error deleting data in UserPerformanceOperations: %s", e)
             raise
 
     def store_review_result(self, user_id: int, card_data: Dict[str, Any]) -> None:
         """Store the review result for a user's card."""
-        logging.info(
-            f"Storing review result for user_id: {user_id}, card_id: {card_data['card_id']}"
+        logger.info(
+            "Storing review result for user_id: %d, card_id: %d",
+            user_id,
+            card_data["card_id"],
         )
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         required_keys = [
@@ -73,6 +84,7 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         ]
         for key in required_keys:
             if key not in card_data:
+                logger.error("Missing %s in card_data", key)
                 raise ValueError(f"Missing {key} in card_data")
 
         try:
@@ -97,9 +109,13 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
                 card_data["lapses"],
             )
             self.insert(query, params)
+            logger.info("Review result stored successfully for user_id: %d", user_id)
         except Exception as e:
-            logging.error(
-                f"Error storing review result for user {user_id}, card {card_data['card_id']}: {e}"
+            logger.error(
+                "Error storing review result for user_id %d, card_id %d: %s",
+                user_id,
+                card_data["card_id"],
+                e,
             )
             raise
 
@@ -115,8 +131,10 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
             review_date: The date to compare with card due dates.
             mark_today: If True, mark cards that were due today and have priority 0.
         """
-        logging.info(
-            f"Marking unreviewed cards as priority for user_id: {user_id}, review_date: {review_date}"
+        logger.info(
+            "Marking unreviewed cards as priority for user_id: %d, review_date: %s",
+            user_id,
+            review_date,
         )
 
         next_day = (
@@ -126,8 +144,10 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         )
 
         if mark_today:
-            logging.info(
-                f"Marking today’s unreviewed cards as priority 1 for user_id: {user_id}, review_date: {review_date}"
+            logger.info(
+                "Marking today’s unreviewed cards as priority 1 for user_id: %d, review_date: %s",
+                user_id,
+                review_date,
             )
             query_today = """
                 UPDATE UserPerformance
@@ -136,8 +156,10 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
             """
             self.update(query_today, (next_day, user_id, review_date))
         else:
-            logging.info(
-                f"Incrementing priority for unreviewed cards before {review_date} for user_id: {user_id}"
+            logger.info(
+                "Incrementing priority for unreviewed cards before %s for user_id: %d",
+                review_date,
+                user_id,
             )
             query_past = """
                 UPDATE UserPerformance
@@ -150,8 +172,8 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
         self, user_id: int, card_id: int
     ) -> Optional[Dict[str, Any]]:
         """Fetch the performance data of a specific card for a user."""
-        logging.info(
-            f"Fetching user performance for user_id: {user_id}, card_id: {card_id}"
+        logger.info(
+            "Fetching user performance for user_id: %d, card_id: %d", user_id, card_id
         )
         query = """
             SELECT * FROM UserPerformance
@@ -161,12 +183,14 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
 
     def delete_card(self, user_id: int, card_id: int):
         """Delete a flashcard from UserPerformance Table using card id."""
-        logging.info(f"Deleting flashcard for user_id: {user_id}")
+        logger.info("Deleting flashcard for user_id: %d, card_id: %d", user_id, card_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         if not isinstance(card_id, int) or card_id <= 0:
+            logger.error("Invalid card_id provided: %d", card_id)
             raise ValueError(f"Invalid card id: {card_id}")
 
         try:
@@ -175,18 +199,30 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
                 WHERE user_id = ? AND card_id = ?
             """
             self.delete(query, (user_id, card_id))
+            logger.info(
+                "Flashcard deleted successfully for user_id: %d, card_id: %d",
+                user_id,
+                card_id,
+            )
         except Exception as e:
-            logging.error(f"Error deleting flashcard for user {user_id}: {e}")
+            logger.error(
+                "Error deleting flashcard for user_id %d, card_id %d: %s",
+                user_id,
+                card_id,
+                e,
+            )
             raise
 
     def delete_set(self, user_id: int, card_id_for_set: list):
         """Delete a flashcard set from UserPerformance Table using card id's."""
-        logging.info(f"Deleting flashcard set for user_id: {user_id}")
+        logger.info("Deleting flashcard set for user_id: %d", user_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         if not isinstance(card_id_for_set, list) or len(card_id_for_set) == 0:
+            logger.error("Invalid card_id_for_set provided: %s", card_id_for_set)
             raise ValueError(f"Invalid card id's: {card_id_for_set}")
 
         try:
@@ -196,35 +232,41 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
             """
             for card_id in card_id_for_set:
                 self.delete(query, (user_id, card_id))
+            logger.info("Flashcard set deleted successfully for user_id: %d", user_id)
         except Exception as e:
-            logging.error(f"Error deleting flashcard set for user {user_id}: {e}")
+            logger.error("Error deleting flashcard set for user_id %d: %s", user_id, e)
             raise
 
     def get_next_reviews_by_month(self, user_id: int, month: str, year: int):
         """Fetch the next review dates for a specific month and year."""
         import calendar
-        import logging
 
-        logging.info(
-            f"Fetching next review dates for user_id: {user_id}, month: {month}, year: {year}"
+        logger.info(
+            "Fetching next review dates for user_id: %d, month: %s, year: %d",
+            user_id,
+            month,
+            year,
         )
 
         # Validate input
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
         if not isinstance(month, str) or not month.strip():
+            logger.error("Invalid month provided: %s", month)
             raise ValueError(f"Invalid month: {month}")
         if not isinstance(year, int) or year <= 0:
+            logger.error("Invalid year provided: %d", year)
             raise ValueError(f"Invalid year: {year}")
 
         # Convert month name to two-digit number
         try:
             month_number = f"{list(calendar.month_name).index(month):02}"
         except ValueError:
+            logger.error("Invalid month name provided: %s", month)
             raise ValueError(f"Invalid month name: {month}")
 
         try:
-            # SQL query with LIKE for text comparison
             query = """
                 SELECT 
                     substr(next_review_date, 9, 2) AS day_of_month, 
@@ -235,7 +277,6 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
                 GROUP BY day_of_month
             """
 
-            # Execute the query and fetch the results
             results = self.fetch(
                 query,
                 (
@@ -245,22 +286,26 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
             )
 
             # Convert the results into a dictionary
-            # Convert the results into a dictionary
             return {
                 int(entry["day_of_month"]): entry["card_count"] for entry in results
             }
 
         except Exception as e:
-            logging.error(
-                f"Error fetching next review dates for user {user_id} in {month} {year}: {e}"
+            logger.error(
+                "Error fetching next review dates for user_id %d in %s %d: %s",
+                user_id,
+                month,
+                year,
+                e,
             )
             raise
 
     def get_all_current_card_states(self, user_id: int) -> Dict[str, Any]:
         """Fetch all current card states for a user."""
-        logging.info(f"Fetching all current card states for user_id: {user_id}")
+        logger.info("Fetching all current card states for user_id: %d", user_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         try:
@@ -280,81 +325,104 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
 
             return state_counts
         except Exception as e:
-            logging.error(f"Error fetching current card states for user {user_id}: {e}")
+            logger.error(
+                "Error fetching current card states for user_id %d: %s", user_id, e
+            )
             raise
 
     def get_total_lapses(self, user_id: int) -> int:
         """Fetch the total number of lapses for a user."""
-        logging.info(f"Fetching total lapses for user_id: {user_id}")
+        logger.info("Fetching total lapses for user_id: %d", user_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         try:
             query = """
-                SELECT SUM(lapses) AS total_lapses
-                FROM UserPerformance
-                WHERE user_id = ?
-            """
+                    SELECT SUM(lapses) AS total_lapses
+                    FROM UserPerformance
+                    WHERE user_id = ?
+                """
             result = self.fetch_one(query, (user_id,))
-
-            return result["total_lapses"] if result["total_lapses"] else 0
+            total_lapses = (
+                result["total_lapses"] if result and result["total_lapses"] else 0
+            )
+            logger.info(
+                "Total lapses for user_id %d fetched successfully: %d",
+                user_id,
+                total_lapses,
+            )
+            return total_lapses
         except Exception as e:
-            logging.error(f"Error fetching total lapses for user {user_id}: {e}")
+            logger.error("Error fetching total lapses for user_id %d: %s", user_id, e)
             raise
 
     def get_stability_data(self, user_id: int) -> Dict[str, Any]:
         """Fetch the stability data for a user."""
-        logging.info(f"Fetching stability data for user_id: {user_id}")
+        logger.info("Fetching stability data for user_id: %d", user_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         try:
             query = """
-                SELECT stability, card_id
-                FROM UserPerformance
-                WHERE user_id = ?
-            """
+                    SELECT stability, card_id
+                    FROM UserPerformance
+                    WHERE user_id = ?
+                """
             results = self.fetch(query, (user_id,))
-            return {row["card_id"]: row["stability"] for row in results}
+            stability_data = {row["card_id"]: row["stability"] for row in results}
+            logger.info(
+                "Stability data fetched for user_id %d: %s", user_id, stability_data
+            )
+            return stability_data
         except Exception as e:
-            logging.error(f"Error fetching stability data for user {user_id}: {e}")
+            logger.error("Error fetching stability data for user_id %d: %s", user_id, e)
             raise
 
     def get_difficulty_data(self, user_id: int) -> Dict[str, Any]:
         """Fetch the difficulty data for a user."""
-        logging.info(f"Fetching difficulty data for user_id: {user_id}")
+        logger.info("Fetching difficulty data for user_id: %d", user_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         try:
             query = """
-                SELECT difficulty, card_id
-                FROM UserPerformance
-                WHERE user_id = ?
-            """
+                    SELECT difficulty, card_id
+                    FROM UserPerformance
+                    WHERE user_id = ?
+                """
             results = self.fetch(query, (user_id,))
-            return {row["card_id"]: row["difficulty"] for row in results}
+            difficulty_data = {row["card_id"]: row["difficulty"] for row in results}
+            logger.info(
+                "Difficulty data fetched for user_id %d: %s", user_id, difficulty_data
+            )
+            return difficulty_data
         except Exception as e:
-            logging.error(f"Error fetching difficulty data for user {user_id}: {e}")
+            logger.error(
+                "Error fetching difficulty data for user_id %d: %s", user_id, e
+            )
             raise
 
     def get_current_ratings(self, user_id: int) -> Dict[str, Any]:
         """Fetch the current ratings for a user."""
-        logging.info(f"Fetching current ratings for user_id: {user_id}")
+        logger.info("Fetching current ratings for user_id: %d", user_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         try:
             query = """
-                SELECT rating, COUNT(card_id) as count
-                FROM UserPerformance
-                WHERE user_id = ?
-                GROUP BY rating
-            """
+                    SELECT rating, COUNT(card_id) as count
+                    FROM UserPerformance
+                    WHERE user_id = ?
+                    GROUP BY rating
+                """
             results = self.fetch(query, (user_id,))
             rating_mapping = {
                 0: "Not Reviewed",
@@ -366,8 +434,12 @@ class UserPerformanceOperations(BaseDatabaseOperations, ABC):
             rating_counts = {
                 rating_mapping[row["rating"]]: row["count"] for row in results
             }
-
+            logger.info(
+                "Current ratings fetched for user_id %d: %s", user_id, rating_counts
+            )
             return rating_counts
         except Exception as e:
-            logging.error(f"Error fetching current ratings for user {user_id}: {e}")
+            logger.error(
+                "Error fetching current ratings for user_id %d: %s", user_id, e
+            )
             raise

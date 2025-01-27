@@ -41,10 +41,8 @@ class FSRSManager:
             )
             remaining_reviews = max(0, daily_limit - reviewed_today)
 
-            # Mark cards as priority
             self.db_service.user_performance_ops.mark_cards_as_priority(user_id, today)
 
-            # Fetch due cards
             flashcards = self.db_service.flashcard_ops.fetch_due_cards(
                 user_id, today, limit=remaining_reviews
             )
@@ -72,21 +70,17 @@ class FSRSManager:
         """
         try:
             today = review_date.date().isoformat()
-
-            # Convert the rating from string to the Rating enum
             try:
-                rating_enum = Rating[rating]  # Convert to enum, e.g., Rating["Good"]
+                rating_enum = Rating[rating]
             except KeyError:
                 logger.error("Invalid rating value: %s", rating)
                 return False
 
-            # Fetch card_data from the database using card_id
             card_data = self.db_service.flashcard_ops.fetch_card_by_id(card_id)
             if not card_data:
                 logger.error("Card with ID %d not found for user %d.", card_id, user_id)
                 return False
 
-            # Load current state of the card
             card = self._load_card_state(card_data, user_id)
 
             # Review the card using the FSRS scheduler with the enum rating
@@ -113,10 +107,8 @@ class FSRSManager:
                     "Random delay of %d day(s) applied to card %d", delay, card.card_id
                 )
 
-            # Store updated state of the card
             self._store_card_state(card, rating_enum, review_log, user_id)
 
-            # Increment reviewed card count for the day
             self.db_service.daily_review_log_ops.increment_reviewed_card_count(
                 user_id, today
             )

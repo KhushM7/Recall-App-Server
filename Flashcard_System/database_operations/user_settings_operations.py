@@ -1,11 +1,18 @@
+import logging
 from abc import ABC
 from typing import Optional, Tuple, Dict, Any, List
-
-import logging
 
 from Flashcard_System.database_operations.base_database_operations import (
     BaseDatabaseOperations,
 )
+
+# Configure logging
+logging.basicConfig(
+    filename="application.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 class UserSettingsOperations(BaseDatabaseOperations, ABC):
@@ -14,7 +21,7 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
         try:
             return super().fetch(query, params)
         except Exception as e:
-            logging.error(f"Error fetching data in UserSettingsOperations: {e}")
+            logger.error("Error fetching data in UserSettingsOperations: %s", e)
             raise
 
     def fetch_one(self, query: str, params: Tuple = ()) -> Dict[str, Any]:
@@ -22,7 +29,7 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
         try:
             return super().fetch_one(query, params)
         except Exception as e:
-            logging.error(f"Error fetching one row in UserSettingsOperations: {e}")
+            logger.error("Error fetching one row in UserSettingsOperations: %s", e)
             raise
 
     def insert(self, query: str, params: Tuple = ()) -> None:
@@ -30,7 +37,7 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
         try:
             super().insert(query, params)
         except Exception as e:
-            logging.error(f"Error inserting data in UserSettingsOperations: {e}")
+            logger.error("Error inserting data in UserSettingsOperations: %s", e)
             raise
 
     def update(self, query: str, params: Tuple = ()) -> None:
@@ -38,7 +45,7 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
         try:
             super().update(query, params)
         except Exception as e:
-            logging.error(f"Error updating data in UserSettingsOperations: {e}")
+            logger.error("Error updating data in UserSettingsOperations: %s", e)
             raise
 
     def delete(self, query: str, params: Tuple = ()) -> None:
@@ -46,14 +53,15 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
         try:
             super().delete(query, params)
         except Exception as e:
-            logging.error(f"Error deleting data in UserSettingsOperations: {e}")
+            logger.error("Error deleting data in UserSettingsOperations: %s", e)
             raise
 
     def fetch_daily_review_limit(self, user_id: int) -> Optional[int]:
         """Fetch the daily review limit for a user from UserSettings."""
-        logging.info(f"Fetching daily review limit for user_id: {user_id}")
+        logger.info("Fetching daily review limit for user_id: %d", user_id)
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
 
         try:
@@ -63,18 +71,30 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
                 WHERE user_id = ?
             """
             result = self.fetch_one(query, (user_id,))
+            if result:
+                logger.info(
+                    "Daily review limit for user_id %d fetched successfully.", user_id
+                )
+            else:
+                logger.info("No daily review limit found for user_id %d.", user_id)
             return result["daily_review_limit"] if result else None
         except Exception as e:
-            logging.error(f"Error fetching daily review limit for user {user_id}: {e}")
+            logger.error(
+                "Error fetching daily review limit for user %d: %s", user_id, e
+            )
             raise
 
     def update_daily_review_limit(self, user_id: int, new_limit: int) -> None:
         """Update the daily review limit for a user."""
-        logging.info(f"Updating daily review limit for user_id: {user_id}")
+        logger.info(
+            "Updating daily review limit for user_id: %d to %d", user_id, new_limit
+        )
 
         if not isinstance(user_id, int) or user_id <= 0:
+            logger.error("Invalid user_id provided: %d", user_id)
             raise ValueError(f"Invalid user_id: {user_id}")
         if not isinstance(new_limit, int) or new_limit <= 0:
+            logger.error("Invalid new_limit provided: %d", new_limit)
             raise ValueError(f"Invalid new_limit: {new_limit}")
 
         try:
@@ -84,6 +104,11 @@ class UserSettingsOperations(BaseDatabaseOperations, ABC):
                 WHERE user_id = ?
             """
             self.insert(query, (new_limit, user_id))
+            logger.info(
+                "Daily review limit for user_id %d updated successfully.", user_id
+            )
         except Exception as e:
-            logging.error(f"Error updating daily review limit for user {user_id}: {e}")
+            logger.error(
+                "Error updating daily review limit for user %d: %s", user_id, e
+            )
             raise
